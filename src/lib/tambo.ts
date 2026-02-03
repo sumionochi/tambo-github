@@ -8,15 +8,53 @@
  * Read more about Tambo at https://tambo.co/docs
  */
 
+import type { TamboComponent, TamboTool } from "@tambo-ai/react";
+import { z } from "zod";
+
+// Import existing example components
 import { Graph, graphSchema } from "@/components/tambo/graph";
 import { DataCard, dataCardSchema } from "@/components/ui/card-data";
+
+// Import generative components (Phase 5)
+import { searchResultsComponent } from "@/components/generative/SearchResults";
+import { pexelsGridComponent } from "@/components/generative/PexelsGrid";
+import { repoExplorerComponent } from "@/components/generative/RepoExplorer";
+
+// Import example services
 import {
   getCountryPopulations,
   getGlobalPopulationTrend,
 } from "@/services/population-stats";
-import type { TamboComponent } from "@tambo-ai/react";
-import { TamboTool } from "@tambo-ai/react";
-import { z } from "zod";
+
+/**
+ * components
+ *
+ * This array contains all the Tambo components that are registered for use within the application.
+ * Each component is defined with its name, description, and expected props. The components
+ * can be controlled by AI to dynamically render UI elements based on user interactions.
+ */
+export const components: TamboComponent[] = [
+  // Existing example components
+  {
+    name: "Graph",
+    description:
+      "A component that renders various types of charts (bar, line, pie) using Recharts. Supports customizable data visualization with labels, datasets, and styling options.",
+    component: Graph,
+    propsSchema: graphSchema,
+  },
+  {
+    name: "DataCard",
+    description:
+      "A component that displays options as clickable cards with links and summaries with the ability to select multiple items.",
+    component: DataCard,
+    propsSchema: dataCardSchema,
+  },
+
+  // FlowSearch AI Generative Components (Phase 5)
+  searchResultsComponent,
+  pexelsGridComponent,
+  repoExplorerComponent,
+];
 
 /**
  * tools
@@ -25,8 +63,8 @@ import { z } from "zod";
  * Each tool is defined with its name, description, and expected props. The tools
  * can be controlled by AI to dynamically fetch data based on user interactions.
  */
-
 export const tools: TamboTool[] = [
+  // Existing example tools
   {
     name: "countryPopulation",
     description:
@@ -53,7 +91,7 @@ export const tools: TamboTool[] = [
         population: z.number(),
         year: z.number(),
         growthRate: z.number(),
-      }),
+      })
     ),
   },
   {
@@ -70,33 +108,18 @@ export const tools: TamboTool[] = [
         year: z.number(),
         population: z.number(),
         growthRate: z.number(),
-      }),
+      })
     ),
   },
-  // Add more tools here
-];
 
-/**
- * components
- *
- * This array contains all the Tambo components that are registered for use within the application.
- * Each component is defined with its name, description, and expected props. The components
- * can be controlled by AI to dynamically render UI elements based on user interactions.
- */
-export const components: TamboComponent[] = [
-  {
-    name: "Graph",
-    description:
-      "A component that renders various types of charts (bar, line, pie) using Recharts. Supports customizable data visualization with labels, datasets, and styling options.",
-    component: Graph,
-    propsSchema: graphSchema,
-  },
-  {
-    name: "DataCard",
-    description:
-      "A component that displays options as clickable cards with links and summaries with the ability to select multiple items.",
-    component: DataCard,
-    propsSchema: dataCardSchema,
-  },
-  // Add more components here
+  // FlowSearch AI Tools will be added in Phase 6:
+  // - search_web
+  // - search_pexels
+  // - search_github
+  // - add_to_collection
+  // - create_collection
+  // - create_calendar_event
+  // - create_note
+  // - generate_image_variations
+  // - create_audio_summary
 ];
