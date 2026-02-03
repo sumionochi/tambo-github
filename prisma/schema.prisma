@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -22,4 +16,112 @@ model User {
   lastName   String?
   image      String?
   supabaseId String   @unique
+
+  // Relations
+  collections     Collection[]
+  calendarEvents  CalendarEvent[]
+  notes           Note[]
+  searchHistory   SearchHistory[]
+  generatedImages GeneratedImage[]
+  conversations   Conversation[]
+}
+
+model Collection {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  items     Json[] // Array of {id, type, url, thumbnail, title}
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  calendarEvents CalendarEvent[]
+  notes          Note[]
+  images         GeneratedImage[]
+
+  @@index([userId])
+}
+
+model CalendarEvent {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  title     String
+  datetime  DateTime
+  note      String?
+  completed Boolean  @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  linkedCollectionId String?
+  linkedCollection   Collection? @relation(fields: [linkedCollectionId], references: [id], onDelete: SetNull)
+
+  linkedItems Json[] // Array of item IDs
+
+  @@index([userId])
+  @@index([datetime])
+}
+
+model Note {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  content      String
+  sourceSearch String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  linkedCollectionId String?
+  linkedCollection   Collection? @relation(fields: [linkedCollectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model SearchHistory {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  query        String
+  source       String // "google", "github", "pexels"
+  filters      Json?
+  resultsCount Int?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model GeneratedImage {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  originalUrl String
+  variations  Json[] // Array of {url, prompt}
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  linkedCollectionId String?
+  linkedCollection   Collection? @relation(fields: [linkedCollectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  threadId  String   @unique
+  name      String?
+  messages  Json[] // Array of message objects
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([updatedAt])
 }
