@@ -1,6 +1,9 @@
 // app/api/search/github/route.ts
 import { NextResponse } from "next/server";
 import { searchRepositories } from "@/lib/apis/github";
+import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
+import { ensureUserExists } from "@/lib/utils/sync-user";
 
 export async function POST(request: Request) {
   try {
@@ -11,12 +14,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Query is required" }, { status: 400 });
     }
 
+    // Get authenticated user
+    const supabase = await createClient();
+    const {
+      data: { user: supabaseUser },
+    } = await supabase.auth.getUser();
+
+    // Search
     const repos = await searchRepositories(query, {
       language,
       stars,
       sort,
       limit: 10,
     });
+
+    // Save search history if user is authenticated
+    if (supabaseUser) {
+      try {
+        const prismaUser = await ensureUserExists(supabaseUser);
+
+        await prisma.searchHistory.create({
+          data: {
+            userId: prismaUser.id,
+            query,
+            source: "github",
+            filters: { language, stars, sort } as any,
+            resultsCount: repos.length,
+          },
+        });
+
+        console.log("✅ Saved search history:", query);
+      } catch (historyError) {
+        console.error("Failed to save search history:", historyError);
+      }
+    }
 
     return NextResponse.json({ repos });
   } catch (error: any) {

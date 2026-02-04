@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -24,6 +26,7 @@ model User {
   searchHistory   SearchHistory[]
   generatedImages GeneratedImage[]
   conversations   Conversation[]
+  searchSessions  SearchSession[] // ← NEW
 }
 
 model Collection {
@@ -31,12 +34,11 @@ model Collection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   name      String
-  items     Json[] // Array of {id, type, url, thumbnail, title}
+  items     Json     @default("[]")
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Relations
   calendarEvents CalendarEvent[]
   notes          Note[]
   images         GeneratedImage[]
@@ -59,10 +61,25 @@ model CalendarEvent {
   linkedCollectionId String?
   linkedCollection   Collection? @relation(fields: [linkedCollectionId], references: [id], onDelete: SetNull)
 
-  linkedItems Json[] // Array of item IDs
+  linkedItems Json @default("[]")
 
   @@index([userId])
   @@index([datetime])
+}
+
+model GeneratedImage {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  originalUrl String
+  variations  Json     @default("[]")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  linkedCollectionId String?
+  linkedCollection   Collection? @relation(fields: [linkedCollectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
 
 model Note {
@@ -96,32 +113,32 @@ model SearchHistory {
   @@index([createdAt])
 }
 
-model GeneratedImage {
-  id          String   @id @default(uuid())
-  createdAt   DateTime @default(now())
-  originalUrl String
-  variations  Json[] // Array of {url, prompt}
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  linkedCollectionId String?
-  linkedCollection   Collection? @relation(fields: [linkedCollectionId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-}
-
 model Conversation {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   threadId  String   @unique
   name      String?
-  messages  Json[] // Array of message objects
+  messages  Json[]
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([updatedAt])
+}
+
+// ← NEW MODEL
+model SearchSession {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  query     String
+  source    String // "pexels", "google", "github"
+  results   Json // Store the actual search results
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

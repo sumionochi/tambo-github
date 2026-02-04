@@ -3,71 +3,126 @@
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { Palette, Download, Save, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Image as ImageIcon, Download, Trash2, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 
-// Zod Schema
 export const ImageStudioPropsSchema = z.object({
-  originalImage: z.object({
-    url: z.string().describe("URL of the original image"),
-    source: z.string().describe("Source of the image (e.g., 'Pexels', 'Google Images')"),
-  }).optional(),
-  variations: z.array(z.object({
-    url: z.string().describe("URL of the generated variation"),
-    prompt: z.string().describe("Prompt used to generate this variation"),
-  })),
-  currentPrompt: z.string().describe("Current editing prompt"),
+  variations: z.array(z.string()).describe("Array of generated image URLs or base64 data"),
+  currentPrompt: z.string().optional().describe("The prompt used to generate variations"),
 })
 
 type ImageStudioProps = z.infer<typeof ImageStudioPropsSchema>
 
-function ImageStudio({ 
-  originalImage: initialOriginal, 
-  variations: initialVariations,
-  currentPrompt: initialPrompt 
-}: ImageStudioProps) {
-  const [originalImage, setOriginalImage] = useTamboComponentState(
-    "originalImage",
-    initialOriginal,
-    initialOriginal
-  )
+interface GeneratedImage {
+  id: string
+  originalUrl: string
+  variations: string[]
+  createdAt: string
+}
+
+function ImageStudio({ variations: initialVariations, currentPrompt }: ImageStudioProps) {
   const [variations, setVariations] = useTamboComponentState(
     "variations",
     initialVariations || [],
     initialVariations || []
   )
-  const [currentPrompt, setCurrentPrompt] = useTamboComponentState(
-    "currentPrompt",
-    initialPrompt || "",
-    initialPrompt || ""
+
+  const [prompt, setPrompt] = useTamboComponentState(
+    "prompt",
+    currentPrompt || "",
+    currentPrompt || ""
   )
 
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null)
+  const [images, setImages] = useState<GeneratedImage[]>([])
+  const [loading, setLoading] = useState(false)
+  const hasLoadedRef = useRef(false)
+  const isLoadingRef = useRef(false)
 
-  // Safe array with null check
-  const safeVariations = variations ?? []
+  // Load generated images on mount
+  useEffect(() => {
+    if (!hasLoadedRef.current && !isLoadingRef.current) {
+      loadImages()
+    }
+  }, [])
 
-  const handleClearStudio = () => {
-    setOriginalImage(undefined)
-    setVariations([])
-    setCurrentPrompt("")
-    setSelectedVariation(null)
-  }
+  const loadImages = async () => {
+    if (isLoadingRef.current) {
+      console.log('⏭️ Skipping duplicate studio load')
+      return
+    }
 
-  const handleRemoveVariation = (url: string) => {
-    setVariations(safeVariations.filter(v => v.url !== url))
-    if (selectedVariation === url) {
-      setSelectedVariation(null)
+    try {
+      isLoadingRef.current = true
+      setLoading(true)
+      
+      console.log('🎨 Fetching generated images...')
+      const response = await fetch('/api/studio')
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Loaded', data.images.length, 'generated images')
+        setImages(data.images || [])
+        hasLoadedRef.current = true
+      }
+    } catch (error) {
+      console.error('Failed to load images:', error)
+    } finally {
+      setLoading(false)
+      isLoadingRef.current = false
     }
   }
 
-  if (!originalImage && safeVariations.length === 0) {
+  const handleRefresh = () => {
+    hasLoadedRef.current = false
+    loadImages()
+  }
+
+  const handleDownload = (imageUrl: string, index: number) => {
+    const link = document.createElement('a')
+    link.href = imageUrl
+    link.download = `variation-${index + 1}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleDeleteImage = async (imageId: string) => {
+    try {
+      await fetch(`/api/studio/${imageId}`, {
+        method: 'DELETE',
+      })
+      setImages(images.filter(img => img.id !== imageId))
+    } catch (error) {
+      console.error('Delete image error:', error)
+    }
+  }
+
+  if (loading && images.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-gray-600">Loading studio...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (images.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-gray-500">
-          <Palette size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">Image Studio</p>
+          <ImageIcon size={48} className="mx-auto mb-4 opacity-30" />
+          <p className="text-lg font-medium">No Generated Images Yet</p>
           <p className="text-sm mt-2">Search for images and ask AI to edit them</p>
+          <button
+            onClick={handleRefresh}
+            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
       </div>
     )
@@ -76,116 +131,106 @@ function ImageStudio({
   return (
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Image Studio</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Image Studio</h2>
+          <p className="text-sm text-gray-500 mt-1">{images.length} generated images</p>
+        </div>
         <button
-          onClick={handleClearStudio}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          onClick={handleRefresh}
+          disabled={loading}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+          title="Refresh studio"
         >
-          <Trash2 size={16} />
-          Clear Studio
+          <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {/* Original Image */}
-      {originalImage && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <h3 className="font-semibold text-gray-900 mb-3">Original Image</h3>
-          <div className="relative group">
-            <img
-              src={originalImage.url}
-              alt="Original"
-              className="w-full rounded-lg"
-            />
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <a
-                href={originalImage.url}
-                download
-                className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50"
-                title="Download"
-              >
-                <Download size={16} />
-              </a>
-            </div>
-          </div>
-          <p className="text-sm text-gray-500 mt-2">Source: {originalImage.source}</p>
-        </div>
-      )}
-
-      {/* Current Prompt */}
-      {currentPrompt && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="text-sm font-semibold text-blue-900 mb-1">Current Editing Prompt</h4>
-          <p className="text-sm text-blue-700">{currentPrompt}</p>
-        </div>
-      )}
-
-      {/* Variations */}
-      {safeVariations.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">
-            Generated Variations ({safeVariations.length})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {safeVariations.map((variation, index) => (
-              <div
-                key={variation.url}
-                className={`
-                  bg-white rounded-lg border p-3 cursor-pointer transition-all
-                  ${selectedVariation === variation.url
-                    ? 'border-blue-500 ring-2 ring-blue-200'
-                    : 'border-gray-200 hover:border-gray-300'
-                  }
-                `}
-                onClick={() => setSelectedVariation(variation.url)}
-              >
-                <div className="relative group">
-                  <img
-                    src={variation.url}
-                    alt={`Variation ${index + 1}`}
-                    className="w-full rounded-lg"
-                  />
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                    <a
-                      href={variation.url}
-                      download
-                      className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50"
-                      title="Download"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Download size={14} />
-                    </a>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemoveVariation(variation.url)
-                      }}
-                      className="p-2 bg-white rounded-lg shadow-lg hover:bg-red-50 text-red-600"
-                      title="Remove"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-600 mt-2 line-clamp-2">
-                  {variation.prompt}
+      {/* Image Sessions */}
+      <div className="space-y-8">
+        {images.map((image) => (
+          <div key={image.id} className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-gray-900">Generated Variations</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {new Date(image.createdAt).toLocaleString()}
                 </p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <button
+                onClick={() => handleDeleteImage(image.id)}
+                className="text-gray-400 hover:text-red-500 transition-colors"
+                title="Delete all"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
 
+            {/* Original Image */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Original:</p>
+              <img
+                src={image.originalUrl}
+                alt="Original"
+                className="w-48 h-48 object-cover rounded-lg border border-gray-300"
+              />
+            </div>
+
+            {/* Generated Variations */}
+            <div>
+              <p className="text-sm text-gray-600 mb-2">
+                Variations ({image.variations.length}):
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {image.variations.map((variation, index) => (
+                  <div
+                    key={index}
+                    className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                    onClick={() => setSelectedVariation(variation)}
+                  >
+                    <img
+                      src={variation}
+                      alt={`Variation ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 hover:bg-black/40 bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDownload(variation, index)
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-gray-900 p-2 rounded-lg hover:bg-gray-100"
+                        title="Download"
+                      >
+                        <Download size={18} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Image Preview Modal */}
       {selectedVariation && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-green-700">
-              Selected variation - Ask AI to save this to a collection
-            </p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
+          onClick={() => setSelectedVariation(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <img
+              src={selectedVariation}
+              alt="Preview"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            />
             <button
-              className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+              onClick={() => setSelectedVariation(null)}
+              className="absolute top-4 right-4 bg-white text-gray-900 p-2 rounded-full hover:bg-gray-100"
             >
-              <Save size={14} />
-              Save
+              ✕
             </button>
           </div>
         </div>
@@ -196,6 +241,6 @@ function ImageStudio({
 
 export const InteractableImageStudio = withInteractable(ImageStudio, {
   componentName: "ImageStudio",
-  description: "Image editing workspace. AI can set the original image, generate variations with prompts, and manage the gallery. Users can download variations and select favorites to save to collections.",
+  description: "Workspace for AI-generated image variations. Shows original images and their edited versions. Users can preview, download, or delete generated images.",
   propsSchema: ImageStudioPropsSchema,
 })

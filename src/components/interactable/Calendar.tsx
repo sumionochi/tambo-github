@@ -3,7 +3,8 @@
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { Calendar as CalendarIcon, Clock, Trash2, CheckCircle } from 'lucide-react'
+import { Calendar as CalendarIcon, Clock, Trash2, CheckCircle, RefreshCw } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
 
 // Zod Schema
 export const CalendarPropsSchema = z.object({
@@ -27,17 +28,79 @@ function Calendar({ events: initialEvents }: CalendarProps) {
     initialEvents || []
   )
 
-  // Safe array with null check
-  const safeEvents = events ?? []
+  const [loading, setLoading] = useState(false)
+  const hasLoadedRef = useRef(false)
+  const isLoadingRef = useRef(false)
 
-  const handleDeleteEvent = (eventId: string) => {
-    setEvents(safeEvents.filter(e => e.id !== eventId))
+  // Load events from database on mount
+  useEffect(() => {
+    if (!hasLoadedRef.current && !isLoadingRef.current) {
+      loadEvents()
+    }
+  }, [])
+
+  const loadEvents = async () => {
+    if (isLoadingRef.current) {
+      console.log('⏭️ Skipping duplicate calendar load')
+      return
+    }
+
+    try {
+      isLoadingRef.current = true
+      setLoading(true)
+      
+      console.log('📅 Fetching calendar events...')
+      const response = await fetch('/api/calendar')
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Loaded', data.events.length, 'events')
+        setEvents(data.events || [])
+        hasLoadedRef.current = true
+      }
+    } catch (error) {
+      console.error('Failed to load events:', error)
+    } finally {
+      setLoading(false)
+      isLoadingRef.current = false
+    }
   }
 
-  const handleToggleComplete = (eventId: string) => {
-    setEvents(safeEvents.map(e => 
-      e.id === eventId ? { ...e, completed: !e.completed } : e
-    ))
+  const handleRefresh = () => {
+    hasLoadedRef.current = false
+    loadEvents()
+  }
+
+  const safeEvents = events ?? []
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      await fetch(`/api/calendar/${eventId}`, {
+        method: 'DELETE',
+      })
+      setEvents(safeEvents.filter(e => e.id !== eventId))
+    } catch (error) {
+      console.error('Delete event error:', error)
+    }
+  }
+
+  const handleToggleComplete = async (eventId: string) => {
+    const event = safeEvents.find(e => e.id === eventId)
+    if (!event) return
+
+    try {
+      await fetch(`/api/calendar/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !event.completed }),
+      })
+
+      setEvents(safeEvents.map(e => 
+        e.id === eventId ? { ...e, completed: !e.completed } : e
+      ))
+    } catch (error) {
+      console.error('Toggle complete error:', error)
+    }
   }
 
   const sortedEvents = [...safeEvents].sort((a, b) => 
@@ -47,6 +110,17 @@ function Calendar({ events: initialEvents }: CalendarProps) {
   const upcomingEvents = sortedEvents.filter(e => !e.completed)
   const completedEvents = sortedEvents.filter(e => e.completed)
 
+  if (loading && safeEvents.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-gray-600">Loading events...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (safeEvents.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -54,6 +128,13 @@ function Calendar({ events: initialEvents }: CalendarProps) {
           <CalendarIcon size={48} className="mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">No Events Scheduled</p>
           <p className="text-sm mt-2">Ask AI to schedule reminders or events</p>
+          <button
+            onClick={handleRefresh}
+            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
       </div>
     )
@@ -62,10 +143,18 @@ function Calendar({ events: initialEvents }: CalendarProps) {
   return (
     <div className="p-6 space-y-6 overflow-y-auto h-full">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">My Calendar</h2>
-        <span className="text-sm text-gray-500">
-          {upcomingEvents.length} upcoming
-        </span>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">My Calendar</h2>
+          <p className="text-sm text-gray-500 mt-1">{upcomingEvents.length} upcoming</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+          title="Refresh calendar"
+        >
+          <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* Upcoming Events */}

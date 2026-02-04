@@ -1,133 +1,128 @@
 // lib/apis/openai.ts
-
 import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-export interface ImageVariation {
-  url: string;
-  prompt: string;
-}
-
 export async function generateImageVariations(
   imageUrl: string,
   prompt: string,
   count: number = 4
-): Promise<ImageVariation[]> {
+): Promise<string[]> {
   try {
-    // Download image first
+    console.log("🎨 Generating image variations with GPT-Image-1.5");
+    console.log("📝 Prompt:", prompt);
+
+    // Fetch the image
     const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error("Failed to fetch image");
+    }
+
     const imageBlob = await imageResponse.blob();
     const imageFile = new File([imageBlob], "image.png", { type: "image/png" });
 
-    // Generate variations using DALL-E
+    // Generate with GPT-Image-1.5
     const response = await openai.images.edit({
+      model: "gpt-image-1.5",
       image: imageFile,
       prompt: prompt,
-      n: count,
+      n: Math.min(count, 10),
       size: "1024x1024",
+      quality: "high",
+      output_format: "png",
     });
 
-    // Fix: Check if data exists and filter out nulls
-    if (!response.data) {
-      throw new Error("No image data returned from OpenAI");
+    // TypeScript safety check
+    if (!response.data || response.data.length === 0) {
+      throw new Error("No images returned from API");
     }
 
-    return response.data
-      .filter((image) => image.url) // Filter out any without URLs
-      .map((image) => ({
-        url: image.url!,
-        prompt: prompt,
-      }));
-  } catch (error) {
-    console.error("OpenAI image generation error:", error);
+    console.log("✅ Generated", response.data.length, "variations");
+
+    // GPT models return base64, convert to data URLs
+    const imageUrls: string[] = [];
+
+    for (const img of response.data) {
+      if (img.b64_json) {
+        imageUrls.push(`data:image/png;base64,${img.b64_json}`);
+      } else if (img.url) {
+        imageUrls.push(img.url);
+      }
+    }
+
+    if (imageUrls.length === 0) {
+      throw new Error("No valid image data received");
+    }
+
+    return imageUrls;
+  } catch (error: any) {
+    console.error("❌ Image generation error:", error);
     throw error;
   }
 }
 
 export async function generateImage(
   prompt: string,
-  count: number = 1
+  options?: {
+    model?:
+      | "dall-e-2"
+      | "dall-e-3"
+      | "gpt-image-1"
+      | "gpt-image-1-mini"
+      | "gpt-image-1.5";
+    size?:
+      | "256x256"
+      | "512x512"
+      | "1024x1024"
+      | "1792x1024"
+      | "1024x1792"
+      | "1536x1024"
+      | "1024x1536";
+    quality?: "standard" | "hd" | "low" | "medium" | "high";
+    n?: number;
+  }
 ): Promise<string[]> {
   try {
-    const response = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: prompt,
-      n: count,
-      size: "1024x1024",
-      quality: "standard",
-    });
+    console.log("🎨 Generating image:", prompt);
 
-    // Fix: Check if data exists and filter out nulls
-    if (!response.data) {
-      throw new Error("No image data returned from OpenAI");
+    const model = options?.model || "gpt-image-1.5";
+    const isGPTModel = model.startsWith("gpt-image");
+
+    const response = await openai.images.generate({
+      model: model,
+      prompt: prompt,
+      n: options?.n || 1,
+      size: options?.size || "1024x1024",
+      quality: options?.quality,
+      ...(isGPTModel && { output_format: "png" }),
+    } as any);
+
+    // TypeScript safety check
+    if (!response.data || response.data.length === 0) {
+      throw new Error("No images returned from API");
     }
 
-    return response.data
-      .filter((image) => image.url) // Filter out any without URLs
-      .map((image) => image.url!);
-  } catch (error) {
-    console.error("OpenAI image generation error:", error);
-    throw error;
-  }
-}
+    console.log("✅ Generated", response.data.length, "images");
 
-export async function createAudioSummary(
-  text: string,
-  voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "alloy"
-): Promise<{ audioUrl: string; transcript: string }> {
-  try {
-    // Generate speech from text
-    const mp3Response = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: voice,
-      input: text,
-    });
+    const imageUrls: string[] = [];
 
-    // Convert to base64 for storage
-    const buffer = Buffer.from(await mp3Response.arrayBuffer());
-    const audioUrl = `data:audio/mp3;base64,${buffer.toString("base64")}`;
+    for (const img of response.data) {
+      if (img.b64_json) {
+        imageUrls.push(`data:image/png;base64,${img.b64_json}`);
+      } else if (img.url) {
+        imageUrls.push(img.url);
+      }
+    }
 
-    return {
-      audioUrl,
-      transcript: text,
-    };
-  } catch (error) {
-    console.error("OpenAI TTS error:", error);
-    throw error;
-  }
-}
+    if (imageUrls.length === 0) {
+      throw new Error("No valid image data received");
+    }
 
-export async function summarizeArticles(articles: string[]): Promise<string> {
-  try {
-    const prompt = `Summarize these articles in a concise 2-3 minute summary suitable for text-to-speech:
-
-${articles.join("\n\n---\n\n")}
-
-Provide a natural, conversational summary that highlights the key points.`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a helpful assistant that creates concise, engaging summaries.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    return response.choices[0]?.message?.content || "";
-  } catch (error) {
-    console.error("OpenAI summarization error:", error);
+    return imageUrls;
+  } catch (error: any) {
+    console.error("❌ Image generation error:", error);
     throw error;
   }
 }

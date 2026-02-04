@@ -32,43 +32,51 @@ export function SearchResults({ searchRequest }: SearchResultsProps) {
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // ✅ Correct Tambo usage
   const { streamStatus } = useTamboStreamStatus()
 
-  // derive isStreaming safely
   const isStreaming =
     !streamStatus.isSuccess && !streamStatus.isError
 
-  useEffect(() => {
-    if (!searchRequest?.query || isStreaming) return
-
-    const fetchResults = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const response = await fetch('/api/search/web', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(searchRequest),
-        })
-
-        if (!response.ok) {
-          throw new Error('Search failed')
+    useEffect(() => {
+      if (!searchRequest?.query || isStreaming) return
+  
+      const fetchResults = async () => {
+        setLoading(true)
+        setError(null)
+  
+        try {
+          const response = await fetch('/api/search/web', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchRequest),
+          })
+  
+          if (!response.ok) throw new Error('Search failed')
+  
+          const data = await response.json()
+          const fetchedResults = data.results || []
+          setResults(fetchedResults)
+          
+          // Log results in a format the AI can understand
+          console.log('📊 Search results available for bookmarking:', 
+            fetchedResults.map((r: SearchResult, i: number) => ({
+              index: i,
+              type: 'article',
+              url: r.url,
+              title: r.title,
+              thumbnail: r.thumbnail,
+            }))
+          )
+        } catch (err: any) {
+          setError(err.message)
+        } finally {
+          setLoading(false)
         }
-
-        const data = await response.json()
-        setResults(data.results ?? [])
-      } catch (err: any) {
-        setError(err.message ?? 'Unknown error')
-      } finally {
-        setLoading(false)
       }
-    }
-
-    fetchResults()
-  }, [searchRequest?.query, isStreaming])
+  
+      fetchResults()
+    }, [searchRequest?.query, isStreaming])
+  
 
   /* ---------------- streaming state ---------------- */
 

@@ -34,14 +34,12 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
       mcpServers={mcpServers}
     >
       <div className="flex flex-col h-screen bg-gray-50">
-        {/* Top Navigation Bar */}
         <ControlBar
           activeView={activeView}
           onViewChange={setActiveView}
           userEmail={user.email!}
         />
 
-        {/* Content Area - Switch based on active view */}
         <div className="flex-1 overflow-hidden">
           {activeView === 'search' && (
             <MessageThreadFull />

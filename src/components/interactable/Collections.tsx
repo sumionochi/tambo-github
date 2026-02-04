@@ -3,8 +3,8 @@
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { BookMarked, Trash2, ExternalLink } from 'lucide-react'
-import { useState } from 'react'
+import { BookMarked, Trash2, ExternalLink, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 
 // Zod Schema
 export const CollectionsPropsSchema = z.object({
@@ -31,24 +31,93 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
   )
 
   const [expandedCollection, setExpandedCollection] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const hasLoadedRef = useRef(false) // Prevent duplicate loads
+  const isLoadingRef = useRef(false) // Prevent concurrent loads
 
-  // Safe array with null check
-  const safeCollections = collections ?? []
+  // Load collections from database on mount (only once)
+  useEffect(() => {
+    if (!hasLoadedRef.current && !isLoadingRef.current) {
+      loadCollections()
+    }
+  }, [])
 
-  const handleDeleteCollection = (collectionId: string) => {
-    setCollections((safeCollections).filter(c => c.id !== collectionId))
+  const loadCollections = async () => {
+    // Prevent duplicate calls
+    if (isLoadingRef.current) {
+      console.log('⏭️ Skipping duplicate load request')
+      return
+    }
+
+    try {
+      isLoadingRef.current = true
+      setLoading(true)
+      
+      console.log('📚 Fetching collections...')
+      const response = await fetch('/api/collections')
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Loaded', data.collections.length, 'collections')
+        setCollections(data.collections || [])
+        hasLoadedRef.current = true
+      }
+    } catch (error) {
+      console.error('Failed to load collections:', error)
+    } finally {
+      setLoading(false)
+      isLoadingRef.current = false
+    }
   }
 
-  const handleDeleteItem = (collectionId: string, itemId: string) => {
-    setCollections((safeCollections).map(col => {
-      if (col.id === collectionId) {
-        return {
-          ...col,
-          items: col.items.filter(item => item.id !== itemId)
+  // Manual refresh function
+  const handleRefresh = () => {
+    hasLoadedRef.current = false
+    loadCollections()
+  }
+
+  const safeCollections = collections ?? []
+
+  const handleDeleteCollection = async (collectionId: string) => {
+    try {
+      await fetch(`/api/collections/${collectionId}`, {
+        method: 'DELETE',
+      })
+      setCollections(safeCollections.filter(c => c.id !== collectionId))
+    } catch (error) {
+      console.error('Delete collection error:', error)
+    }
+  }
+
+  const handleDeleteItem = async (collectionId: string, itemId: string) => {
+    try {
+      await fetch(`/api/collections/${collectionId}/items/${itemId}`, {
+        method: 'DELETE',
+      })
+      
+      setCollections(safeCollections.map(col => {
+        if (col.id === collectionId) {
+          return {
+            ...col,
+            items: col.items.filter(item => item.id !== itemId)
+          }
         }
-      }
-      return col
-    }))
+        return col
+      }))
+    } catch (error) {
+      console.error('Delete item error:', error)
+    }
+  }
+
+  if (loading && safeCollections.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="text-gray-600">Loading collections...</p>
+        </div>
+      </div>
+    )
   }
 
   if (safeCollections.length === 0) {
@@ -58,6 +127,13 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
           <BookMarked size={48} className="mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">No Collections Yet</p>
           <p className="text-sm mt-2">Start searching and bookmark items to create collections</p>
+          <button
+            onClick={handleRefresh}
+            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
       </div>
     )
@@ -66,8 +142,18 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
   return (
     <div className="p-6 space-y-4 overflow-y-auto h-full">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">My Collections</h2>
-        <span className="text-sm text-gray-500">{safeCollections.length} collections</span>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">My Collections</h2>
+          <p className="text-sm text-gray-500 mt-1">{safeCollections.length} collections</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+          title="Refresh collections"
+        >
+          <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
