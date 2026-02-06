@@ -20,7 +20,11 @@ import { InteractableImageStudio } from './interactable/ImageStudio'
 import { AnalyticsGraph } from './interactable/AnalyticsGraph'
 import { LocationMap } from './interactable/LocationMap'
 
-type WorkspaceView = 'search' | 'collections' | 'calendar' | 'notes' | 'studio' | 'analytics' | 'map' | 'canvas'
+// Phase 3: Workflow & Report interactable components
+import { InteractableWorkflowLibrary } from './interactable/WorkflowLibrary'
+import { InteractableReportsList } from './interactable/ReportsList'
+
+type WorkspaceView = 'search' | 'collections' | 'calendar' | 'notes' | 'studio' | 'analytics' | 'map' | 'canvas' | 'workflows' | 'reports'
 
 interface MainWorkspaceProps {
   user: User
@@ -137,7 +141,31 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
                 />
               </div>
               <MessageThreadCollapsible
-                defaultOpen={true}  // ← Open by default for Canvas mode
+                defaultOpen={true}
+                height="80vh"
+                className="absolute bottom-6 right-6 z-10"
+              />
+            </div>
+          )}
+
+          {/* Workflows: Component + Collapsible Chat */}
+          {activeView === 'workflows' && (
+            <div className="relative h-full">
+              <InteractableWorkflowLibrary workflows={[]} />
+              <MessageThreadCollapsible
+                defaultOpen={true}
+                height="80vh"
+                className="absolute bottom-6 right-6 z-10"
+              />
+            </div>
+          )}
+
+          {/* Reports: Component + Collapsible Chat */}
+          {activeView === 'reports' && (
+            <div className="relative h-full">
+              <InteractableReportsList reports={[]} />
+              <MessageThreadCollapsible
+                defaultOpen={false}
                 height="80vh"
                 className="absolute bottom-6 right-6 z-10"
               />

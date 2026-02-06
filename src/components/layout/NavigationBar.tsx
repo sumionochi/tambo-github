@@ -1,11 +1,11 @@
 // components/layout/NavigationBar.tsx
 'use client'
 
-import { Search, BookMarked, Calendar, FileText, Palette, LogOut, BarChart3, MapPin, Layout } from 'lucide-react'
+import { Search, BookMarked, Calendar, FileText, Palette, LogOut, BarChart3, MapPin, Layout, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type WorkspaceView = 'search' | 'collections' | 'calendar' | 'notes' | 'studio' | 'analytics' | 'map' | 'canvas'
+type WorkspaceView = 'search' | 'collections' | 'calendar' | 'notes' | 'studio' | 'analytics' | 'map' | 'canvas' | 'workflows' | 'reports'
 
 interface NavigationBarProps {
   activeView: WorkspaceView
@@ -24,9 +24,11 @@ export function NavigationBar({ activeView, onViewChange, userEmail }: Navigatio
 
   const tabs = [
     { id: 'search' as const, label: 'Search', icon: Search },
+    { id: 'workflows' as const, label: 'Workflows', icon: Zap },
+    { id: 'reports' as const, label: 'Reports', icon: FileText },
     { id: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { id: 'map' as const, label: 'Map', icon: MapPin },
-    { id: 'canvas' as const, label: 'Canvas', icon: Layout }, // ← NEW: Canvas tab
+    { id: 'canvas' as const, label: 'Canvas', icon: Layout },
     { id: 'collections' as const, label: 'Collections', icon: BookMarked },
     { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
     { id: 'notes' as const, label: 'Notes', icon: FileText },
