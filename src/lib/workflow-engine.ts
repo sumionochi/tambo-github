@@ -10,6 +10,10 @@
 // Step types: search | extract | analyze | aggregate | generate_report
 
 import { prisma } from "@/lib/prisma";
+import {
+  buildPlanningPrompt,
+  buildSynthesisPrompt,
+} from "@/lib/workflow-prompts";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -158,54 +162,15 @@ export async function planWorkflowSteps(input: PlanInput): Promise<PlanOutput> {
     deep: { maxResults: 20, maxSteps: 8 },
   }[depth] || { maxResults: 10, maxSteps: 5 };
 
-  const systemPrompt = `You are a research workflow planner for FlowSearch AI.
-Your job is to break down a research goal into discrete, executable steps.
-
-AVAILABLE STEP TYPES:
-1. "search" — Search the web, GitHub, or Pexels for information
-   params: { source: "google"|"github"|"pexels", query: string, num?: number }
-2. "extract" — Parse/extract specific data points from previous step results  
-   params: { extractionGoal: string, fields: string[], fromStep: number }
-3. "analyze" — Use AI to analyze collected data (sentiment, comparison, trends)
-   params: { analysisType: string, question: string, fromSteps: number[] }
-4. "aggregate" — Combine data from multiple previous steps into unified dataset
-   params: { fromSteps: number[], mergeStrategy: string }
-5. "generate_report" — Final step: synthesize everything into a report
-   params: { reportFormat: "${outputFormat}" }
-
-AVAILABLE SOURCES: ${JSON.stringify(sources)}
-DEPTH: ${depth} (max ${depthConfig.maxResults} results per search, max ${
-    depthConfig.maxSteps
-  } steps)
-OUTPUT FORMAT: ${outputFormat}
-
-RULES:
-- Always end with a "generate_report" step
-- Each step should have a clear, specific title
-- Use "dependsOn" to indicate which previous step indices provide input
-- Keep steps focused and atomic
-- For "search" steps, craft specific search queries (not the raw user goal)
-- Maximum ${depthConfig.maxSteps} steps total
-
-Respond with ONLY valid JSON, no markdown fences, no explanation:`;
-
-  const userPrompt = `Research goal: "${goal}"
-
-Return JSON in this exact format:
-{
-  "title": "Short workflow title (3-6 words)",
-  "description": "One sentence describing the workflow",
-  "steps": [
-    {
-      "index": 0,
-      "type": "search",
-      "title": "Step title",
-      "description": "What this step does",
-      "params": { "source": "google", "query": "specific search query", "num": ${depthConfig.maxResults} },
-      "dependsOn": []
-    }
-  ]
-}`;
+  // Use enhanced prompts from workflow-prompts.ts
+  const { system: systemPrompt, user: userPrompt } = buildPlanningPrompt({
+    goal,
+    sources,
+    depth,
+    outputFormat,
+    maxResults: depthConfig.maxResults,
+    maxSteps: depthConfig.maxSteps,
+  });
 
   const response = await callAI(systemPrompt, userPrompt);
   const plan = parseAIJson<PlanOutput>(response);
@@ -698,85 +663,13 @@ export async function synthesizeReport(
 ): Promise<ReportOutput> {
   const { goal, results, outputFormat, customTitle } = input;
 
-  const formatInstructions: Record<string, string> = {
-    comparison: `Create a COMPARISON report with:
-- Executive summary comparing the items
-- A detailed comparison TABLE section (type: "table") with headers and rows
-- A CHART section (type: "chart") showing key metrics visually
-- Key differences LIST section (type: "list")
-- Final recommendation TEXT section (type: "text")`,
-
-    analysis: `Create an ANALYSIS report with:
-- Executive summary of findings
-- Detailed analysis TEXT sections for each key area
-- Supporting data TABLE (type: "table") if applicable
-- Key insights LIST (type: "list")
-- Conclusions and next steps TEXT section`,
-
-    timeline: `Create a TIMELINE report with:
-- Executive summary of the timeline
-- Chronological events TABLE (type: "table") 
-- Key milestones LIST (type: "list")
-- Trend analysis TEXT section
-- Future predictions TEXT section`,
-
-    summary: `Create a SUMMARY report with:
-- Executive summary (2-3 sentences)
-- Overview TEXT section with main findings
-- Key data TABLE (type: "table") if applicable
-- Highlights LIST (type: "list")
-- Conclusion TEXT section`,
-  };
-
-  const systemPrompt = `You are a research report generator for FlowSearch AI.
-Generate professional, well-structured research reports from collected data.
-
-SECTION TYPES (use these exact type values):
-- "text": Paragraph content — content is a string
-- "table": Tabular data — content is { "headers": string[], "rows": string[][] }
-- "chart": Chart data — content is { "chartType": "bar"|"line"|"pie", "labels": string[], "datasets": [{ "label": string, "data": number[] }] }
-- "list": List of items — content is { "items": string[] }
-
-RULES:
-- Every section must have: id (unique string), type, title, content
-- Use real data from the results, don't make up numbers
-- If data is sparse, note limitations honestly
-- Keep summaries concise (2-3 sentences)
-- Include 3-6 sections per report
-- Respond with ONLY valid JSON, no markdown fences`;
-
-  const userPrompt = `Generate a ${outputFormat} report for this research:
-
-RESEARCH GOAL: ${goal}
-${customTitle ? `CUSTOM TITLE: ${customTitle}` : ""}
-
-${formatInstructions[outputFormat] || formatInstructions.summary}
-
-COLLECTED DATA (from workflow steps):
-${JSON.stringify(results, null, 2).slice(0, 12000)}
-
-Return JSON in this EXACT format:
-{
-  "title": "${customTitle || "Report title based on goal"}",
-  "summary": "2-3 sentence executive summary",
-  "sections": [
-    {
-      "id": "section-1",
-      "type": "text",
-      "title": "Section Title",
-      "content": "Section content here..."
-    },
-    {
-      "id": "section-2",
-      "type": "table",
-      "title": "Comparison Table",
-      "content": {
-        "headers": ["Column 1", "Column 2"],
-        "rows": [["value", "value"]]
-      }
-    }
-  ]
-}`;
+  // Use enhanced prompts from workflow-prompts.ts
+  const { system: systemPrompt, user: userPrompt } = buildSynthesisPrompt({
+    goal,
+    results,
+    outputFormat,
+    customTitle,
+  });
 
   const response = await callAI(systemPrompt, userPrompt);
   const report = parseAIJson<ReportOutput>(response);

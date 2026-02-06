@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth-helpers";
 import { planWorkflowSteps } from "@/lib/workflow-engine";
+import { matchTemplate, buildFromTemplate } from "@/lib/workflow-templates";
 
 // POST /api/workflows/execute — Create and start a workflow
 export async function POST(request: NextRequest) {
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
       sources = ["google"],
       depth = "standard",
       outputFormat = "summary",
+      templateId, // Optional: force a specific template
     } = body;
 
     if (!goal || typeof goal !== "string") {
@@ -27,15 +29,74 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Use AI to plan the workflow steps from natural language goal
-    const { title, description, steps } = await planWorkflowSteps({
-      goal,
-      sources,
-      depth,
-      outputFormat,
-    });
+    let title: string = "";
+    let description: string = "";
+    let steps: any[] = [];
+    let usedTemplate = false;
 
-    // Step 2: Create the workflow record in database
+    // ── Step 1: Try template matching first (instant, no AI call) ──
+    if (templateId) {
+      // Forced template by ID
+      const { WORKFLOW_TEMPLATES } = await import("@/lib/workflow-templates");
+      const template = WORKFLOW_TEMPLATES.find((t) => t.id === templateId);
+      if (template) {
+        const result = buildFromTemplate(
+          template,
+          goal,
+          depth,
+          sources,
+          outputFormat
+        );
+        title = result.title;
+        description = result.description;
+        steps = result.steps;
+        usedTemplate = true;
+        console.log(`⚡ Using forced template: ${template.name}`);
+      }
+    }
+
+    if (!usedTemplate) {
+      // Try auto-matching
+      const match = matchTemplate(goal);
+
+      if (match && match.confidence >= 0.5) {
+        // High-confidence template match — use it
+        const result = buildFromTemplate(
+          match.template,
+          match.topic,
+          depth,
+          sources,
+          outputFormat
+        );
+        title = result.title;
+        description = result.description;
+        steps = result.steps;
+        usedTemplate = true;
+        console.log(
+          `⚡ Template matched: ${
+            match.template.name
+          } (confidence: ${match.confidence.toFixed(2)}, topic: "${
+            match.topic
+          }")`
+        );
+      }
+    }
+
+    if (!usedTemplate) {
+      // ── Step 1b: Fall back to AI planning ──
+      console.log(`🤖 No template match, using AI planner for: "${goal}"`);
+      const plan = await planWorkflowSteps({
+        goal,
+        sources,
+        depth,
+        outputFormat,
+      });
+      title = plan.title;
+      description = plan.description;
+      steps = plan.steps;
+    }
+
+    // ── Step 2: Create the workflow record in database ──
     const workflow = await prisma.workflow.create({
       data: {
         userId: user.id,
@@ -53,24 +114,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Step 3: Start execution asynchronously (fire-and-forget)
-    // The executeWorkflow function runs in the background
-    // and updates the DB as it progresses.
-    // We import dynamically to avoid circular dependencies.
+    // ── Step 3: Start execution asynchronously (fire-and-forget) ──
     const { executeWorkflow } = await import("@/lib/workflow-engine");
 
-    // Fire and forget — don't await this
     executeWorkflow(workflow.id).catch((err) => {
       console.error(`Workflow ${workflow.id} execution error:`, err);
     });
 
-    // Step 4: Return workflow info immediately so frontend can start polling
+    // ── Step 4: Return workflow info immediately ──
     return NextResponse.json({
       success: true,
       workflowId: workflow.id,
       title: workflow.title,
       status: "pending",
       totalSteps: steps.length,
+      usedTemplate,
       steps: steps.map((s: any) => ({
         index: s.index,
         type: s.type,
@@ -78,7 +136,9 @@ export async function POST(request: NextRequest) {
         description: s.description,
         status: "pending",
       })),
-      message: `Workflow created with ${steps.length} steps. Execution starting...`,
+      message: usedTemplate
+        ? `Workflow created from template with ${steps.length} steps. Execution starting...`
+        : `Workflow created with ${steps.length} AI-planned steps. Execution starting...`,
     });
   } catch (error: any) {
     console.error("Failed to create workflow:", error);

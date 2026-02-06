@@ -1,12 +1,13 @@
 // components/MainWorkspace.tsx
+// CORRECTED: Uses Tambo's contextHelpers for AI context + proper suggestions integration
 'use client'
 
 import { TamboProvider } from '@tambo-ai/react'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { NavigationBar } from './layout/NavigationBar'
 import { MessageThreadFull } from '@/components/tambo/message-thread-full'
 import { MessageThreadCollapsible } from '@/components/tambo/message-thread-collapsible'
-import { CanvasSpace } from '@/components/tambo/canvas-space' 
+import { CanvasSpace } from '@/components/tambo/canvas-space'
 import { ControlBar } from '@/components/tambo/control-bar'
 import { useMcpServers } from '@/components/tambo/mcp-config-modal'
 import { components, tools } from '@/lib/tambo'
@@ -34,6 +35,41 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
   const [activeView, setActiveView] = useState<WorkspaceView>('search')
   const mcpServers = useMcpServers()
 
+  // ─────────────────────────────────────────────────────
+  // TAMBO CONTEXT HELPERS
+  // These functions run on every message and inject context
+  // so the AI knows what view the user is on and what's
+  // available. This is what powers smart suggestions.
+  // ─────────────────────────────────────────────────────
+
+  const activeViewHelper = useCallback(() => ({
+    activeView,
+    description: getViewDescription(activeView),
+  }), [activeView])
+
+  const workflowCapabilitiesHelper = useCallback(() => ({
+    availableTools: [
+      'execute_research_workflow — Start a multi-step research workflow from natural language',
+      'generate_report_from_collection — Generate a report from a saved collection',
+      'get_workflow_status — Check progress of a running workflow',
+    ],
+    availableSources: ['google', 'github', 'pexels'],
+    depthOptions: ['quick (3 steps)', 'standard (5 steps)', 'deep (8 steps)'],
+    outputFormats: ['comparison', 'analysis', 'timeline', 'summary'],
+    workflowExamples: [
+      'Compare the top 5 JavaScript frameworks',
+      'Research the AI coding assistant market',
+      'Analyze trending GitHub repos for machine learning',
+      'Find design inspiration images for dashboard UIs',
+      'Create a timeline of web framework evolution',
+    ],
+  }), [])
+
+  const userInfoHelper = useCallback(() => ({
+    userId: user.id,
+    email: user.email,
+  }), [user.id, user.email])
+
   return (
     <TamboProvider
       apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
@@ -41,6 +77,17 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
       tools={tools}
       tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
       mcpServers={mcpServers}
+      // ── THIS IS THE KEY INTEGRATION ──
+      // contextHelpers inject metadata into every AI message.
+      // The AI uses this to:
+      // 1. Know which view the user is on → smarter responses
+      // 2. Know workflow capabilities → natural suggestions
+      // 3. Know about the user → personalized experience
+      contextHelpers={{
+        currentView: activeViewHelper,
+        workflowCapabilities: workflowCapabilitiesHelper,
+        userInfo: userInfoHelper,
+      }}
     >
       <div className="flex flex-col h-screen bg-gray-50">
         {/* Navigation Bar */}
@@ -96,7 +143,7 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
           {/* Studio: Component + Collapsible Chat */}
           {activeView === 'studio' && (
             <div className="relative h-full">
-              <InteractableImageStudio 
+              <InteractableImageStudio
                 variations={[]}
                 currentPrompt=""
               />
@@ -136,7 +183,7 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
           {activeView === 'canvas' && (
             <div className="relative h-full">
               <div className="h-full bg-white">
-                <CanvasSpace 
+                <CanvasSpace
                   className="h-full w-full"
                 />
               </div>
@@ -178,4 +225,24 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
       </div>
     </TamboProvider>
   )
+}
+
+// ─────────────────────────────────────────────────────
+// View descriptions — the AI reads these to understand context
+// ─────────────────────────────────────────────────────
+
+function getViewDescription(view: WorkspaceView): string {
+  const descriptions: Record<WorkspaceView, string> = {
+    search: 'User is on the main Search page. They can search the web, GitHub, or Pexels. They can also start research workflows by describing a research goal.',
+    workflows: 'User is on the Workflows page. They can see active, completed, and failed workflows. They can start new workflows or retry failed ones. Suggest workflow ideas.',
+    reports: 'User is on the Reports page. They can browse generated reports from workflows and collections. They can ask to generate new reports.',
+    analytics: 'User is viewing Analytics. They can see search data visualizations.',
+    map: 'User is viewing the Map. They can see location-based search results.',
+    canvas: 'User is on the Canvas. They can see generative components arranged spatially.',
+    collections: 'User is on the Collections page. They can manage saved search results and bookmarks. They can also generate reports from collections.',
+    calendar: 'User is viewing the Calendar. They can manage research events and deadlines.',
+    notes: 'User is on the Notes page. They can create and manage research notes.',
+    studio: 'User is in the Image Studio. They can generate and edit images.',
+  }
+  return descriptions[view]
 }
