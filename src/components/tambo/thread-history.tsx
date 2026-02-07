@@ -422,6 +422,8 @@ const ThreadHistoryList = React.forwardRef<
     // Deduplicate threads based on ID first to avoid key collisions
     const uniqueThreadsMap = new Map();
     threads.items.forEach((thread: TamboThread) => {
+      // Prioritize preserving the instance that matches currentThread if duplicates exist,
+      // otherwise just take the first one found.
       if (!uniqueThreadsMap.has(thread.id)) {
         uniqueThreadsMap.set(thread.id, thread);
       }
