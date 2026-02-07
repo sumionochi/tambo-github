@@ -93,6 +93,26 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
     description: getViewDescription(activeView),
   }), [activeView])
 
+  const inlineComponentsGuide = useCallback(() => ({
+    description: `IMPORTANT: You have inline generative components that render rich UI directly in the chat thread. ALWAYS prefer rendering these components over plain text responses when the user asks about their data.
+
+COMPONENT RENDERING RULES:
+1. "What's my schedule?" / "Show my events" → Render CalendarInline component (NOT text list)
+2. "Show my collections" / "What have I bookmarked?" → Render CollectionsInline component
+3. "Show my notes" / "What notes have I saved?" → Render NotesInline component
+4. "Show my edited images" / "What's in my studio?" → Render ImageStudioInline component
+5. After creating a calendar event → Render CalendarInline to CONFIRM it appears
+6. After bookmarking results → Render CollectionsInline to SHOW the saved items
+7. After saving a note → Render NotesInline to CONFIRM it was saved
+
+FILTERING:
+- "Show my Learning Resources collection" → CollectionsInline with collectionName="Learning Resources"
+- "Do I have any events about design?" → CalendarInline with filterTitle="design"
+- "Show notes about React" → NotesInline with filterContent="React"
+
+These components auto-fetch data from the API — you just need to render them with optional filter props. The user should see interactive cards with clickable links, not plain text.`,
+  }), [])
+
   const workflowCapabilitiesHelper = useCallback(() => ({
     availableTools: [
       'execute_research_workflow — Start a multi-step research workflow from natural language',
@@ -127,6 +147,7 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
       mcpServers={mcpServers}
       contextHelpers={{
         currentView: activeViewHelper,
+        inlineComponents: inlineComponentsGuide,
         workflowCapabilities: workflowCapabilitiesHelper,
         userInfo: userInfoHelper,
       }}

@@ -16,6 +16,12 @@ import { gitHubArchitectureDiagramComponent } from "@/components/generative/GitH
 import { workflowExecutorComponent } from "@/components/generative/WorkflowExecutor";
 import { dynamicReportComponent } from "@/components/generative/DynamicReport";
 
+// Phase 4: Inline generative components (render in chat instead of requiring tab switch)
+import { calendarInlineComponent } from "@/components/generative/CalendarInline";
+import { collectionsInlineComponent } from "@/components/generative/CollectionsInline";
+import { notesInlineComponent } from "@/components/generative/NotesInline";
+import { imageStudioInlineComponent } from "@/components/generative/ImageStudioInline";
+
 // Import example services (keep these if they're client-safe)
 import {
   getCountryPopulations,
@@ -46,6 +52,12 @@ export const components: TamboComponent[] = [
   // Phase 3: Workflow components
   workflowExecutorComponent,
   dynamicReportComponent,
+
+  // Phase 4: Inline generative components (render data views directly in chat)
+  calendarInlineComponent,
+  collectionsInlineComponent,
+  notesInlineComponent,
+  imageStudioInlineComponent,
 ];
 
 // Client-safe tool wrappers that call API routes
