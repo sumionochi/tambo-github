@@ -412,15 +412,24 @@ const ThreadHistoryList = React.forwardRef<
     }
   };
 
-  // Filter threads based on search query
+  // Filter threads based on search query with deduplication
   const filteredThreads = useMemo(() => {
     // While collapsed we do not need the list, avoid extra work.
     if (isCollapsed) return [];
 
     if (!threads?.items) return [];
 
+    // Deduplicate threads based on ID first to avoid key collisions
+    const uniqueThreadsMap = new Map();
+    threads.items.forEach((thread: TamboThread) => {
+      if (!uniqueThreadsMap.has(thread.id)) {
+        uniqueThreadsMap.set(thread.id, thread);
+      }
+    });
+    const uniqueThreads = Array.from(uniqueThreadsMap.values());
+
     const query = searchQuery.toLowerCase();
-    return threads.items.filter((thread: TamboThread) => {
+    return uniqueThreads.filter((thread: TamboThread) => {
       const nameMatches = thread.name?.toLowerCase().includes(query) ?? false;
       const idMatches = thread.id.toLowerCase().includes(query);
 

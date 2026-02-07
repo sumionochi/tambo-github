@@ -96,6 +96,13 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
   const inlineComponentsGuide = useCallback(() => ({
     description: `IMPORTANT: You have inline generative components that render rich UI directly in the chat thread. ALWAYS prefer rendering these components over plain text responses when the user asks about their data.
 
+ANALYTICS ROUTING (CRITICAL):
+- "Compare X vs Y on GitHub" → Render AnalyticsInline with analysisType="github-comparison", queries=["X","Y"]
+- "Show search trends for X" → Render AnalyticsInline with analysisType="search-trends", queries=["X"]
+- "Analyze languages for X" → Render AnalyticsInline with analysisType="language-trends", queries=["X"]
+- "Analyze sources for X" → Render AnalyticsInline with analysisType="source-analysis", queries=["X"]
+NEVER use execute_research_workflow or AnalyticsGraph for these — AnalyticsInline renders just the chart, instantly.
+
 COMPONENT RENDERING RULES:
 1. "What's my schedule?" / "Show my events" → Render CalendarInline component (NOT text list)
 2. "Show my collections" / "What have I bookmarked?" → Render CollectionsInline component

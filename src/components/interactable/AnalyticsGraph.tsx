@@ -3,19 +3,22 @@
 'use client'
 
 import { z } from 'zod'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Graph } from '@/components/tambo/graph'
 import { BarChart3, TrendingUp, Code, Search, Loader, Sparkles } from 'lucide-react'
 import { EditWithTamboButton } from '@/components/tambo/edit-with-tambo-button'
 import type { TamboComponent } from '@tambo-ai/react'
 
-export const AnalyticsGraphPropsSchema = z.preprocess(
-  (v) => v ?? {},
-  z.object({
+export const AnalyticsGraphPropsSchema = z.object({
     analysisType: z.enum(['search-trends', 'github-comparison', 'language-trends', 'source-analysis']).optional().nullable().describe("Type of analysis to perform"),
     queries: z.array(z.string().nullable().default('')).optional().nullable().describe("Topics or repositories to analyze"),
   })
-)
+
+// Tambo-safe: handle undefined props during streaming
+const _pAnalyticsGraph = AnalyticsGraphPropsSchema.parse.bind(AnalyticsGraphPropsSchema);
+const _spAnalyticsGraph = AnalyticsGraphPropsSchema.safeParse.bind(AnalyticsGraphPropsSchema);
+(AnalyticsGraphPropsSchema as any).parse = (d: unknown, p?: any) => _pAnalyticsGraph(d ?? {}, p);
+(AnalyticsGraphPropsSchema as any).safeParse = (d: unknown, p?: any) => _spAnalyticsGraph(d ?? {}, p);
 
 type AnalyticsGraphProps = z.infer<typeof AnalyticsGraphPropsSchema>
 type AnalysisMode = 'search-trends' | 'github-comparison' | 'language-trends' | 'source-analysis'
@@ -31,6 +34,7 @@ export function AnalyticsGraph({ analysisType: initialType, queries: initialQuer
   const [chartData, setChartData] = useState<ChartData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const autoRunRef = useRef(false)
 
   const generateColors = (count: number): string[] => {
     const colors = [
@@ -119,6 +123,32 @@ export function AnalyticsGraph({ analysisType: initialType, queries: initialQuer
     } catch (err: any) { setError(err.message || 'Analysis failed') }
     finally { setLoading(false) }
   }
+
+  // ── AUTO-RUN: When AI renders this component with queries, auto-execute ──
+  useEffect(() => {
+    if (autoRunRef.current) return
+    const validQueries = (initialQueries || []).map(q => (q || '').trim()).filter(Boolean)
+    if (validQueries.length > 0) {
+      autoRunRef.current = true
+      setInputValue(validQueries.join(', '))
+      // Trigger analysis with the provided queries
+      const runAuto = async () => {
+        setLoading(true); setError(null); setChartData(null)
+        try {
+          const m = initialType || 'github-comparison'
+          switch (m) {
+            case 'search-trends': await analyzeSearchTrends(validQueries); break
+            case 'github-comparison': await compareGitHubRepos(validQueries); break
+            case 'language-trends': await analyzeLanguageTrends(validQueries[0]); break
+            case 'source-analysis': await analyzeSearchSources(validQueries[0]); break
+          }
+        } catch (err: any) { setError(err.message || 'Analysis failed') }
+        finally { setLoading(false) }
+      }
+      runAuto()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const modes = [
     { id: 'github-comparison' as const, label: 'GitHub Compare', icon: Code, description: 'Compare repo statistics', placeholder: 'e.g., react, vue, svelte' },
@@ -273,7 +303,7 @@ function TipBanner({ text }: { text: string }) {
 
 export const analyticsGraphComponent: TamboComponent = {
   name: 'AnalyticsGraph',
-  description: 'Advanced analytics dashboard for comparing search trends, GitHub repositories, programming languages, and source types using real-time data from Google and GitHub APIs.',
+  description: `Full analytics dashboard with mode selector, input fields, and interactive controls. Use ONLY when rendering the Analytics TAB view (not in chat). For chat-triggered analytics, ALWAYS use AnalyticsInline instead.`,
   component: AnalyticsGraph,
   propsSchema: AnalyticsGraphPropsSchema,
 }

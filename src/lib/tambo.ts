@@ -21,6 +21,7 @@ import { calendarInlineComponent } from "@/components/generative/CalendarInline"
 import { collectionsInlineComponent } from "@/components/generative/CollectionsInline";
 import { notesInlineComponent } from "@/components/generative/NotesInline";
 import { imageStudioInlineComponent } from "@/components/generative/ImageStudioInline";
+import { analyticsInlineComponent } from "@/components/generative/AnalyticsInline";
 
 // Import example services (keep these if they're client-safe)
 import {
@@ -58,6 +59,7 @@ export const components: TamboComponent[] = [
   collectionsInlineComponent,
   notesInlineComponent,
   imageStudioInlineComponent,
+  analyticsInlineComponent,
 ];
 
 // Client-safe tool wrappers that call API routes
@@ -291,22 +293,23 @@ DO NOT add any other text or explanations.`,
   // Step 5: Execute Research Workflow
   {
     name: "execute_research_workflow",
-    description: `Start an automated multi-step research workflow. Use this when the user wants to:
-- Research and compare multiple things (e.g., "Compare top 5 AI tools")
-- Conduct in-depth research on a topic (e.g., "Research React alternatives")
-- Analyze trends or data across sources (e.g., "Analyze GitHub activity of JS frameworks")
-- Create a report from web/GitHub/image research
+    description: `Start a DEEP automated multi-step research workflow that takes 30-60 seconds. Use ONLY when the user wants:
+- In-depth, multi-step research (e.g., "Do deep research on React alternatives and write a report")
+- Comprehensive reports requiring multiple searches and AI synthesis
+- Large-scale data gathering across multiple sources
 
-The system will:
-1. Break the goal into discrete research steps
-2. Execute each step automatically (search, extract, analyze)
-3. Generate a structured report with findings
+⚠️ Do NOT use this tool for:
+- Quick comparisons → Use AnalyticsInline component instead (e.g., "Compare React vs Vue on GitHub")
+- Search trend charts → Use AnalyticsInline with analysisType="search-trends"
+- Simple GitHub stats → Use AnalyticsInline with analysisType="github-comparison"
+- Quick searches → Use the regular search tools
 
-After calling this tool, ALWAYS render the WorkflowExecutor component with the returned workflowId and steps so the user can see live progress.
+The workflow system:
+1. Breaks the goal into 3-8 discrete research steps
+2. Executes each step automatically (search, extract, analyze)
+3. Generates a structured report with findings (takes 30-60 seconds)
 
-Example response after tool returns:
-"I've started a research workflow with {totalSteps} steps. Here's the live progress:"
-[Render WorkflowExecutor component]`,
+After calling this tool, ALWAYS render the WorkflowExecutor component with the returned workflowId and steps so the user can see live progress.`,
 
     tool: async (input: any) => {
       const response = await fetch("/api/workflows/execute", {
