@@ -1,4 +1,5 @@
 // components/layout/ThreadCollapsible.tsx
+// REDESIGNED: Cream/Sage palette, polished sidebar, soft transitions
 'use client'
 
 import { ChevronLeft, ChevronRight, Search as SearchIcon } from 'lucide-react'
@@ -22,85 +23,89 @@ export function ThreadCollapsible({ collapsed, onToggle, userId }: ThreadCollaps
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadSearchHistory()
-  }, [userId])
+  useEffect(() => { loadSearchHistory() }, [userId])
 
   const loadSearchHistory = async () => {
     try {
       const response = await fetch('/api/search-history')
-      
       if (response.ok) {
         const data = await response.json()
         setSearchHistory(data.history || [])
       }
-    } catch (error) {
-      console.error('Failed to load search history:', error)
-    } finally {
-      setLoading(false)
-    }
+    } catch (error) { console.error('Failed to load search history:', error) }
+    finally { setLoading(false) }
   }
 
+  /* ── Collapsed Rail ── */
   if (collapsed) {
     return (
-      <div className="w-12 bg-white border-r border-gray-200 flex flex-col items-center py-4">
-        <button
-          onClick={onToggle}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-all"
-        >
-          <ChevronRight size={20} className="text-gray-600" />
+      <div className="w-12 flex flex-col items-center py-4 transition-all"
+        style={{ background: 'var(--fs-cream-50)', borderRight: '1px solid var(--fs-border-light)', transitionDuration: 'var(--fs-duration-normal)' }}>
+        <button onClick={onToggle}
+          className="p-2 rounded-xl transition-all"
+          style={{ transitionDuration: 'var(--fs-duration-fast)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
+          <ChevronRight size={18} strokeWidth={1.8} style={{ color: 'var(--fs-text-muted)' }} />
         </button>
       </div>
     )
   }
 
+  /* ── Expanded Sidebar ── */
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-64 flex flex-col transition-all"
+      style={{ background: 'var(--fs-cream-50)', borderRight: '1px solid var(--fs-border-light)', transitionDuration: 'var(--fs-duration-normal)' }}>
+
       {/* Header */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
-        <h2 className="font-semibold text-gray-900">Recent Searches</h2>
-        <button
-          onClick={onToggle}
-          className="p-1 hover:bg-gray-100 rounded transition-all"
-        >
-          <ChevronLeft size={20} className="text-gray-600" />
+      <div className="h-14 flex items-center justify-between px-4"
+        style={{ borderBottom: '1px solid var(--fs-border-light)' }}>
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--fs-text-primary)' }}>Recent Searches</h2>
+        <button onClick={onToggle}
+          className="p-1.5 rounded-lg transition-all"
+          style={{ transitionDuration: 'var(--fs-duration-fast)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
+          <ChevronLeft size={18} strokeWidth={1.8} style={{ color: 'var(--fs-text-muted)' }} />
         </button>
       </div>
 
-      {/* Search History List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      {/* History List */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5 fs-scrollbar">
         {loading ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            Loading...
+          <div className="text-center py-8">
+            <div className="inline-block w-6 h-6 rounded-full border-[2px] border-t-transparent animate-spin mb-3"
+              style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+            <p className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>Loading...</p>
           </div>
         ) : searchHistory.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            <SearchIcon size={32} className="mx-auto mb-2 opacity-30" />
-            <p>No searches yet</p>
-            <p className="text-xs mt-1">Start searching to see history</p>
+          <div className="text-center py-8 fs-animate-in">
+            <div className="mx-auto mb-3 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--fs-sage-50)' }}>
+              <SearchIcon size={18} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'var(--fs-text-secondary)' }}>No searches yet</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--fs-text-muted)' }}>Start searching to see history</p>
           </div>
         ) : (
           searchHistory.map((item) => (
-            <button
-              key={item.id}
-              className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-all group"
-            >
+            <button key={item.id}
+              className="w-full text-left p-2.5 rounded-xl transition-all group"
+              style={{ transitionDuration: 'var(--fs-duration-fast)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
               <div className="flex items-start gap-2">
-                <SearchIcon size={16} className="text-gray-400 mt-0.5 shrink-0" />
+                <SearchIcon size={14} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: 'var(--fs-sage-400)' }} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {item.query}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-gray-500 capitalize">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--fs-text-primary)' }}>{item.query}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                      style={{ background: 'var(--fs-sage-50)', color: 'var(--fs-sage-700)' }}>
                       {item.source}
                     </span>
                     {item.resultsCount && (
-                      <span className="text-xs text-gray-400">
-                        {item.resultsCount} results
-                      </span>
+                      <span className="text-[10px]" style={{ color: 'var(--fs-text-muted)' }}>{item.resultsCount} results</span>
                     )}
-                    <span className="text-xs text-gray-400">
+                    <span className="text-[10px]" style={{ color: 'var(--fs-text-muted)' }}>
                       {new Date(item.createdAt).toLocaleDateString()}
                     </span>
                   </div>

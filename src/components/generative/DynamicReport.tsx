@@ -1,116 +1,46 @@
 // components/generative/DynamicReport.tsx
+// REDESIGNED: Cream/Sage palette, sage-tinted sections, polished layout
 'use client'
 
 import { z } from 'zod'
 import { useState, useEffect } from 'react'
 import { useTamboStreamStatus } from '@tambo-ai/react'
 import {
-  FileText,
-  Loader,
-  Download,
-  Bookmark,
-  ChevronDown,
-  ChevronUp,
-  BarChart3,
-  Table2,
-  List,
-  Type,
-  Calendar,
-  ExternalLink,
-  Copy,
-  CheckCircle2,
+  FileText, Loader, Bookmark, ChevronDown, ChevronUp, BarChart3,
+  Table2, List, Type, Calendar, ExternalLink, Copy, CheckCircle2, Sparkles,
 } from 'lucide-react'
 
-// ─── Zod Schema ───
 export const DynamicReportPropsSchema = z.object({
   reportId: z.string().describe('ID of the report to display'),
 })
 
 type DynamicReportProps = z.infer<typeof DynamicReportPropsSchema>
 
-// Section types
-interface TextSection {
-  id: string
-  type: 'text'
-  title: string
-  content: string
-}
-
-interface TableSection {
-  id: string
-  type: 'table'
-  title: string
-  content: {
-    headers: string[]
-    rows: string[][]
-  }
-}
-
-interface ChartSection {
-  id: string
-  type: 'chart'
-  title: string
-  content: {
-    chartType: 'bar' | 'line' | 'pie'
-    labels: string[]
-    datasets: Array<{
-      label: string
-      data: number[]
-      backgroundColor?: string
-    }>
-  }
-}
-
-interface ListSection {
-  id: string
-  type: 'list'
-  title: string
-  content: {
-    items: string[]
-  }
-}
-
+interface TextSection { id: string; type: 'text'; title: string; content: string }
+interface TableSection { id: string; type: 'table'; title: string; content: { headers: string[]; rows: string[][] } }
+interface ChartSection { id: string; type: 'chart'; title: string; content: { chartType: 'bar' | 'line' | 'pie'; labels: string[]; datasets: Array<{ label: string; data: number[]; backgroundColor?: string }> } }
+interface ListSection { id: string; type: 'list'; title: string; content: { items: string[] } }
 type ReportSection = TextSection | TableSection | ChartSection | ListSection
 
 interface ReportData {
-  id: string
-  title: string
-  summary: string
-  format: string
-  sections: ReportSection[]
-  sourceData: any
-  createdAt: string
-  updatedAt: string
-  workflowId?: string
-  sourceCollectionId?: string
+  id: string; title: string; summary: string; format: string; sections: ReportSection[];
+  sourceData: any; createdAt: string; updatedAt: string; workflowId?: string; sourceCollectionId?: string;
 }
 
-// Section type → icon mapping
-const sectionIcons: Record<string, any> = {
-  text: Type,
-  table: Table2,
-  chart: BarChart3,
-  list: List,
-}
+const sectionIcons: Record<string, any> = { text: Type, table: Table2, chart: BarChart3, list: List }
 
-// Chart colors
+// Sage-tinted chart palette
 const chartColors = [
-  'rgba(59, 130, 246, 0.7)',   // blue
-  'rgba(168, 85, 247, 0.7)',   // purple
-  'rgba(34, 197, 94, 0.7)',    // green
-  'rgba(249, 115, 22, 0.7)',   // orange
-  'rgba(236, 72, 153, 0.7)',   // pink
-  'rgba(20, 184, 166, 0.7)',   // teal
-  'rgba(245, 158, 11, 0.7)',   // amber
-  'rgba(99, 102, 241, 0.7)',   // indigo
+  'rgba(91,143,91,0.75)',  'rgba(120,160,100,0.70)',  'rgba(75,120,75,0.65)',
+  'rgba(140,175,120,0.70)', 'rgba(60,100,60,0.60)',   'rgba(110,150,90,0.70)',
+  'rgba(85,130,85,0.65)',   'rgba(130,165,110,0.70)',
 ]
 
-// Format badge colors
-const formatBadgeColors: Record<string, { bg: string; text: string }> = {
-  comparison: { bg: 'bg-blue-100', text: 'text-blue-800' },
-  analysis: { bg: 'bg-purple-100', text: 'text-purple-800' },
-  timeline: { bg: 'bg-amber-100', text: 'text-amber-800' },
-  summary: { bg: 'bg-green-100', text: 'text-green-800' },
+const formatBadgeConfig: Record<string, { bg: string; color: string }> = {
+  comparison: { bg: 'var(--fs-sage-100)', color: 'var(--fs-sage-800)' },
+  analysis:   { bg: 'var(--fs-sage-50)',  color: 'var(--fs-sage-700)' },
+  timeline:   { bg: 'var(--fs-cream-300)', color: 'var(--fs-text-primary)' },
+  summary:    { bg: 'var(--fs-cream-200)', color: 'var(--fs-text-secondary)' },
 }
 
 export function DynamicReport({ reportId }: DynamicReportProps) {
@@ -123,221 +53,140 @@ export function DynamicReport({ reportId }: DynamicReportProps) {
   const { streamStatus } = useTamboStreamStatus()
   const isStreaming = !streamStatus.isSuccess && !streamStatus.isError
 
-  // ─── Fetch report data ───
   useEffect(() => {
     if (isStreaming || !reportId) return
-
     const fetchReport = async () => {
-      setLoading(true)
-      setError(null)
-
+      setLoading(true); setError(null)
       try {
         const response = await fetch(`/api/reports/${reportId}`)
         if (!response.ok) throw new Error('Failed to load report')
-
         const data = await response.json()
         setReport(data.report)
-      } catch (err: any) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
+      } catch (err: any) { setError(err.message) }
+      finally { setLoading(false) }
     }
-
     fetchReport()
   }, [reportId, isStreaming])
 
-  // ─── Toggle section collapse ───
   const toggleSection = (sectionId: string) => {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev)
-      if (next.has(sectionId)) {
-        next.delete(sectionId)
-      } else {
-        next.add(sectionId)
-      }
-      return next
-    })
+    setCollapsedSections((prev) => { const next = new Set(prev); next.has(sectionId) ? next.delete(sectionId) : next.add(sectionId); return next })
   }
 
-  // ─── Copy report as text ───
   const handleCopyReport = async () => {
     if (!report) return
-
-    const textContent = [
-      `# ${report.title}`,
-      '',
-      report.summary,
-      '',
+    const textContent = [`# ${report.title}`, '', report.summary, '',
       ...report.sections.map((section) => {
         let content = `## ${section.title}\n`
         switch (section.type) {
-          case 'text':
-            content += section.content
-            break
-          case 'table': {
-            const { headers, rows } = section.content
-            content += `| ${headers.join(' | ')} |\n`
-            content += `| ${headers.map(() => '---').join(' | ')} |\n`
-            rows.forEach((row) => {
-              content += `| ${row.join(' | ')} |\n`
-            })
-            break
-          }
-          case 'list':
-            section.content.items.forEach((item) => {
-              content += `- ${item}\n`
-            })
-            break
-          case 'chart':
-            content += `[Chart: ${section.content.chartType}]\n`
-            section.content.labels.forEach((label, i) => {
-              const values = section.content.datasets
-                .map((ds) => `${ds.label}: ${ds.data[i]}`)
-                .join(', ')
-              content += `${label}: ${values}\n`
-            })
-            break
+          case 'text': content += section.content; break
+          case 'table': { const { headers, rows } = section.content; content += `| ${headers.join(' | ')} |\n| ${headers.map(() => '---').join(' | ')} |\n`; rows.forEach((row) => { content += `| ${row.join(' | ')} |\n` }); break }
+          case 'list': section.content.items.forEach((item) => { content += `- ${item}\n` }); break
+          case 'chart': content += `[Chart: ${section.content.chartType}]\n`; section.content.labels.forEach((label, i) => { const values = section.content.datasets.map((ds) => `${ds.label}: ${ds.data[i]}`).join(', '); content += `${label}: ${values}\n` }); break
         }
         return content
       }),
     ].join('\n')
-
     await navigator.clipboard.writeText(textContent)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
-  // ─── Streaming state ───
+  /* ── Streaming ── */
   if (isStreaming) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium">Preparing report...</p>
+        <div className="text-center fs-animate-in">
+          <div className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4" style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+          <p className="font-medium" style={{ color: 'var(--fs-text-primary)' }}>Preparing report...</p>
         </div>
       </div>
     )
   }
 
-  // ─── Loading state ───
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border-2 border-gray-200 p-8">
+      <div className="rounded-2xl p-8 fs-animate-in" style={{ background: 'var(--fs-cream-50)', border: '2px solid var(--fs-border-light)' }}>
         <div className="flex items-center justify-center py-8">
           <div className="text-center">
-            <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
-            <p className="text-gray-600 font-medium">Loading report...</p>
+            <div className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4" style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+            <p className="font-medium" style={{ color: 'var(--fs-text-primary)' }}>Loading report...</p>
           </div>
         </div>
       </div>
     )
   }
 
-  // ─── Error state ───
+  /* ── Error ── */
   if (error || !report) {
     return (
-      <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6 text-center">
-        <FileText size={32} className="text-red-400 mx-auto mb-3" />
-        <p className="text-red-700 font-medium">Failed to load report</p>
-        <p className="text-red-600 text-sm mt-1">{error || 'Report not found'}</p>
+      <div className="rounded-2xl p-6 text-center fs-animate-in" style={{ background: '#FEF2F2', border: '2px solid #FECACA' }}>
+        <div className="mx-auto mb-3 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#FEE2E2' }}>
+          <FileText size={22} style={{ color: '#DC2626' }} />
+        </div>
+        <p className="font-medium" style={{ color: '#B91C1C' }}>Failed to load report</p>
+        <p className="text-sm mt-1" style={{ color: '#DC2626' }}>{error || 'Report not found'}</p>
       </div>
     )
   }
 
-  const formatBadge = formatBadgeColors[report.format] || formatBadgeColors.summary
+  const badge = formatBadgeConfig[report.format] || formatBadgeConfig.summary
 
-  // ─── Report display ───
+  /* ── Report ── */
   return (
-    <div className="bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
+    <div className="rounded-2xl overflow-hidden fs-animate-in" style={{ background: 'var(--fs-cream-50)', border: '2px solid var(--fs-border-light)' }}>
+
       {/* ── Header ── */}
-      <div className="bg-linear-to-r from-gray-50 to-white px-6 py-6 border-b border-gray-200">
+      <div className="px-6 py-6" style={{ background: 'var(--fs-cream-100)', borderBottom: '1px solid var(--fs-border-light)' }}>
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FileText size={22} className="text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{report.title}</h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${formatBadge.bg} ${formatBadge.text}`}
-                  >
-                    {report.format}
-                  </span>
-                  <span className="text-xs text-gray-500 flex items-center gap-1">
-                    <Calendar size={10} />
-                    {new Date(report.createdAt).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {report.sections.length} sections
-                  </span>
-                </div>
+          <div className="flex items-center gap-3 flex-1">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'var(--fs-sage-100)' }}>
+              <FileText size={20} strokeWidth={1.8} style={{ color: 'var(--fs-sage-600)' }} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>{report.title}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-lg" style={{ background: badge.bg, color: badge.color }}>{report.format}</span>
+                <span className="text-xs flex items-center gap-1" style={{ color: 'var(--fs-text-muted)' }}>
+                  <Calendar size={10} strokeWidth={1.8} />
+                  {new Date(report.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>{report.sections.length} sections</span>
               </div>
             </div>
           </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyReport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              {copied ? (
-                <>
-                  <CheckCircle2 size={14} className="text-green-600" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy size={14} />
-                  Copy
-                </>
-              )}
-            </button>
-          </div>
+          <button onClick={handleCopyReport}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-xl transition-all"
+            style={{ background: 'var(--fs-cream-200)', color: 'var(--fs-text-secondary)', transitionDuration: 'var(--fs-duration-fast)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-50)'; e.currentTarget.style.color = 'var(--fs-sage-700)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)'; e.currentTarget.style.color = 'var(--fs-text-secondary)' }}>
+            {copied ? <><CheckCircle2 size={14} style={{ color: 'var(--fs-sage-600)' }} /> Copied!</> : <><Copy size={14} /> Copy</>}
+          </button>
         </div>
 
         {/* Summary */}
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm font-medium text-blue-900 mb-1">Executive Summary</p>
-          <p className="text-sm text-blue-800 leading-relaxed">{report.summary}</p>
+        <div className="mt-4 p-4 rounded-xl" style={{ background: 'var(--fs-sage-50)', border: '1px solid var(--fs-sage-200)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--fs-sage-700)', letterSpacing: '0.08em' }}>Executive Summary</p>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--fs-sage-800)' }}>{report.summary}</p>
         </div>
       </div>
 
       {/* ── Sections ── */}
-      <div className="divide-y divide-gray-100">
-        {report.sections.map((section) => {
+      <div>
+        {report.sections.map((section, idx) => {
           const SectionIcon = sectionIcons[section.type] || FileText
           const isCollapsed = collapsedSections.has(section.id)
-
           return (
-            <div key={section.id} className="px-6 py-5">
-              {/* Section header */}
-              <button
-                onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center justify-between group"
-              >
-                <div className="flex items-center gap-2">
-                  <SectionIcon size={16} className="text-gray-500" />
-                  <h3 className="font-semibold text-gray-900 text-base">{section.title}</h3>
-                  <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                    {section.type}
-                  </span>
+            <div key={section.id} className="px-6 py-5" style={{ borderBottom: idx < report.sections.length - 1 ? '1px solid var(--fs-border-light)' : 'none' }}>
+              <button onClick={() => toggleSection(section.id)} className="w-full flex items-center justify-between group">
+                <div className="flex items-center gap-2.5">
+                  <SectionIcon size={15} strokeWidth={1.8} style={{ color: 'var(--fs-sage-500)' }} />
+                  <h3 className="font-semibold text-base" style={{ color: 'var(--fs-text-primary)' }}>{section.title}</h3>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'var(--fs-cream-200)', color: 'var(--fs-text-muted)' }}>{section.type}</span>
                 </div>
-                <div className="text-gray-400 group-hover:text-gray-600 transition-colors">
-                  {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                <div className="transition-colors" style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}>
+                  {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                 </div>
               </button>
-
-              {/* Section content */}
               {!isCollapsed && (
                 <div className="mt-4">
                   {section.type === 'text' && <TextContent content={section.content} />}
@@ -352,87 +201,59 @@ export function DynamicReport({ reportId }: DynamicReportProps) {
       </div>
 
       {/* ── Footer ── */}
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+      <div className="px-6 py-4" style={{ background: 'var(--fs-cream-100)', borderTop: '1px solid var(--fs-border-light)' }}>
         <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            {report.sourceData?.workflowQuery && (
-              <span>Research: "{report.sourceData.workflowQuery}"</span>
-            )}
-            {report.sourceData?.collectionName && (
-              <span>Collection: "{report.sourceData.collectionName}"</span>
-            )}
+          <div className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>
+            {report.sourceData?.workflowQuery && <span>Research: &ldquo;{report.sourceData.workflowQuery}&rdquo;</span>}
+            {report.sourceData?.collectionName && <span>Collection: &ldquo;{report.sourceData.collectionName}&rdquo;</span>}
           </div>
-          <div className="text-xs text-gray-400">
-            Report ID: {report.id.slice(0, 8)}...
-          </div>
+          <div className="text-xs font-mono" style={{ color: 'var(--fs-text-muted)' }}>Report ID: {report.id.slice(0, 8)}...</div>
         </div>
       </div>
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────
-// Section Renderers
-// ─────────────────────────────────────────────────────────
+/* ═══════════ Section Renderers ═══════════ */
 
 function TextContent({ content }: { content: string }) {
   return (
-    <div className="prose prose-sm max-w-none">
+    <div className="space-y-3">
       {content.split('\n').map((paragraph, i) => (
-        <p key={i} className="text-gray-700 leading-relaxed mb-3 last:mb-0">
-          {paragraph}
-        </p>
+        <p key={i} className="text-sm leading-relaxed last:mb-0" style={{ color: 'var(--fs-text-secondary)' }}>{paragraph}</p>
       ))}
     </div>
   )
 }
 
 function TableContent({ content }: { content: { headers: string[]; rows: string[][] } }) {
-  if (!content?.headers || !content?.rows) {
-    return <p className="text-gray-500 text-sm italic">No table data available</p>
-  }
-
+  if (!content?.headers || !content?.rows) return <p className="text-sm italic" style={{ color: 'var(--fs-text-muted)' }}>No table data available</p>
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
+    <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--fs-border-light)' }}>
+      <table className="min-w-full divide-y" style={{ borderColor: 'var(--fs-border-light)' }}>
+        <thead>
+          <tr style={{ background: 'var(--fs-cream-100)' }}>
             {content.headers.map((header, i) => (
-              <th
-                key={i}
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
-              >
-                {header}
-              </th>
+              <th key={i} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--fs-text-muted)', letterSpacing: '0.08em' }}>{header}</th>
             ))}
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-100">
+        <tbody>
           {content.rows.map((row, rowIdx) => (
-            <tr
-              key={rowIdx}
-              className="hover:bg-gray-50 transition-colors"
-            >
+            <tr key={rowIdx} className="transition-colors" style={{ borderBottom: '1px solid var(--fs-border-light)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-100)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
               {row.map((cell, cellIdx) => (
-                <td
-                  key={cellIdx}
-                  className={`px-4 py-3 text-sm ${
-                    cellIdx === 0 ? 'font-medium text-gray-900' : 'text-gray-600'
-                  }`}
-                >
-                  {/* Check if cell looks like a URL */}
+                <td key={cellIdx} className={`px-4 py-3 text-sm ${cellIdx === 0 ? 'font-medium' : ''}`}
+                  style={{ color: cellIdx === 0 ? 'var(--fs-text-primary)' : 'var(--fs-text-secondary)' }}>
                   {typeof cell === 'string' && cell.startsWith('http') ? (
-                    <a
-                      href={cell}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
-                    >
+                    <a href={cell} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 transition-colors"
+                      style={{ color: 'var(--fs-sage-600)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fs-sage-700)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-sage-600)' }}>
                       Link <ExternalLink size={10} />
                     </a>
-                  ) : (
-                    cell
-                  )}
+                  ) : cell}
                 </td>
               ))}
             </tr>
@@ -443,55 +264,33 @@ function TableContent({ content }: { content: { headers: string[]; rows: string[
   )
 }
 
-function ChartContent({
-  content,
-}: {
-  content: {
-    chartType: string
-    labels: string[]
-    datasets: Array<{ label: string; data: number[]; backgroundColor?: string }>
-  }
-}) {
-  if (!content?.labels || !content?.datasets) {
-    return <p className="text-gray-500 text-sm italic">No chart data available</p>
-  }
-
-  // Find max value for scaling
+function ChartContent({ content }: { content: { chartType: string; labels: string[]; datasets: Array<{ label: string; data: number[]; backgroundColor?: string }> } }) {
+  if (!content?.labels || !content?.datasets) return <p className="text-sm italic" style={{ color: 'var(--fs-text-muted)' }}>No chart data available</p>
   const allValues = content.datasets.flatMap((ds) => ds.data)
   const maxValue = Math.max(...allValues, 1)
 
   if (content.chartType === 'bar') {
     return (
       <div className="space-y-4">
-        {/* Legend */}
         {content.datasets.length > 1 && (
           <div className="flex items-center gap-4 flex-wrap">
             {content.datasets.map((ds, i) => (
               <div key={i} className="flex items-center gap-1.5">
-                <div
-                  className="w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: ds.backgroundColor || chartColors[i % chartColors.length] }}
-                />
-                <span className="text-xs text-gray-600">{ds.label}</span>
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: ds.backgroundColor || chartColors[i % chartColors.length] }} />
+                <span className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>{ds.label}</span>
               </div>
             ))}
           </div>
         )}
-
-        {/* Bars */}
         <div className="space-y-3">
           {content.labels.map((label, labelIdx) => (
             <div key={labelIdx}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">
-                  {label}
-                </span>
+                <span className="text-sm font-medium truncate max-w-[200px]" style={{ color: 'var(--fs-text-primary)' }}>{label}</span>
                 <div className="flex items-center gap-3">
                   {content.datasets.map((ds, dsIdx) => (
-                    <span key={dsIdx} className="text-xs text-gray-500 font-mono">
-                      {typeof ds.data[labelIdx] === 'number'
-                        ? ds.data[labelIdx].toLocaleString()
-                        : ds.data[labelIdx]}
+                    <span key={dsIdx} className="text-xs font-mono" style={{ color: 'var(--fs-text-muted)' }}>
+                      {typeof ds.data[labelIdx] === 'number' ? ds.data[labelIdx].toLocaleString() : ds.data[labelIdx]}
                     </span>
                   ))}
                 </div>
@@ -500,17 +299,7 @@ function ChartContent({
                 {content.datasets.map((ds, dsIdx) => {
                   const value = ds.data[labelIdx] || 0
                   const width = maxValue > 0 ? (value / maxValue) * 100 : 0
-                  return (
-                    <div
-                      key={dsIdx}
-                      className="h-6 rounded transition-all duration-500"
-                      style={{
-                        width: `${Math.max(width, 1)}%`,
-                        backgroundColor:
-                          ds.backgroundColor || chartColors[dsIdx % chartColors.length],
-                      }}
-                    />
-                  )
+                  return <div key={dsIdx} className="h-5 rounded-lg transition-all" style={{ width: `${Math.max(width, 1)}%`, backgroundColor: ds.backgroundColor || chartColors[dsIdx % chartColors.length], transitionDuration: '500ms' }} />
                 })}
               </div>
             </div>
@@ -520,33 +309,23 @@ function ChartContent({
     )
   }
 
-  // Fallback: render as a simple data table for other chart types
+  // Fallback table for other chart types
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-              Label
-            </th>
-            {content.datasets.map((ds, i) => (
-              <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
-                {ds.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-100">
+    <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid var(--fs-border-light)' }}>
+      <table className="min-w-full">
+        <thead><tr style={{ background: 'var(--fs-cream-100)' }}>
+          <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--fs-text-muted)' }}>Label</th>
+          {content.datasets.map((ds, i) => <th key={i} className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--fs-text-muted)' }}>{ds.label}</th>)}
+        </tr></thead>
+        <tbody>
           {content.labels.map((label, labelIdx) => (
-            <tr key={labelIdx} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-sm font-medium text-gray-900">{label}</td>
-              {content.datasets.map((ds, dsIdx) => (
-                <td key={dsIdx} className="px-4 py-3 text-sm text-gray-600 font-mono">
-                  {typeof ds.data[labelIdx] === 'number'
-                    ? ds.data[labelIdx].toLocaleString()
-                    : ds.data[labelIdx]}
-                </td>
-              ))}
+            <tr key={labelIdx} style={{ borderBottom: '1px solid var(--fs-border-light)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-100)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
+              <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--fs-text-primary)' }}>{label}</td>
+              {content.datasets.map((ds, dsIdx) => <td key={dsIdx} className="px-4 py-3 text-sm font-mono" style={{ color: 'var(--fs-text-secondary)' }}>
+                {typeof ds.data[labelIdx] === 'number' ? ds.data[labelIdx].toLocaleString() : ds.data[labelIdx]}
+              </td>)}
             </tr>
           ))}
         </tbody>
@@ -556,29 +335,24 @@ function ChartContent({
 }
 
 function ListContent({ content }: { content: { items: string[] } }) {
-  if (!content?.items || content.items.length === 0) {
-    return <p className="text-gray-500 text-sm italic">No items available</p>
-  }
-
+  if (!content?.items || content.items.length === 0) return <p className="text-sm italic" style={{ color: 'var(--fs-text-muted)' }}>No items available</p>
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2.5">
       {content.items.map((item, i) => (
-        <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
-          <div className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-            <span className="text-xs font-bold">{i + 1}</span>
+        <li key={i} className="flex items-start gap-3 text-sm">
+          <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'var(--fs-sage-100)', color: 'var(--fs-sage-700)' }}>
+            <span className="text-[10px] font-bold">{i + 1}</span>
           </div>
-          <p className="leading-relaxed">{item}</p>
+          <p className="leading-relaxed" style={{ color: 'var(--fs-text-secondary)' }}>{item}</p>
         </li>
       ))}
     </ul>
   )
 }
 
-// ─── Component export ───
 export const dynamicReportComponent = {
   name: 'DynamicReport',
-  description:
-    'Renders an AI-generated research report with structured sections including text, tables, charts, and lists. Fetches report data by ID and displays it with professional formatting. Use this after a workflow completes or after calling generate_report_from_collection.',
+  description: 'Renders an AI-generated research report with structured sections including text, tables, charts, and lists. Fetches report data by ID and displays it with professional formatting.',
   component: DynamicReport,
   propsSchema: DynamicReportPropsSchema,
 }

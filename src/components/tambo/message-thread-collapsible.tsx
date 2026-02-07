@@ -23,58 +23,36 @@ import {
 } from "@/components/tambo/thread-content";
 import { ThreadDropdown } from "@/components/tambo/thread-dropdown";
 import { cn } from "@/lib/utils";
-import { type Suggestion } from "@tambo-ai/react";
+import { type Suggestion, useTambo } from "@tambo-ai/react";
 import { type VariantProps } from "class-variance-authority";
-import { XIcon } from "lucide-react";
+import { XIcon, Loader2 } from "lucide-react";
 import { Collapsible } from "radix-ui";
 import * as React from "react";
 
 /**
  * Props for the MessageThreadCollapsible component
- * @interface
- * @extends React.HTMLAttributes<HTMLDivElement>
  */
 export interface MessageThreadCollapsibleProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Whether the collapsible should be open by default (default: false) */
   defaultOpen?: boolean;
-  /**
-   * Controls the visual styling of messages in the thread.
-   * Possible values include: "default", "compact", etc.
-   * These values are defined in messageVariants from "@/components/tambo/message".
-   * @example variant="compact"
-   */
   variant?: VariantProps<typeof messageVariants>["variant"];
-  /** Optional override for height of the thread content. If not provided, defaults to 80vh. Supports any CSS height value (e.g., "700px", "80vh", "90%"). */
   height?: string;
-  /** @deprecated Use height instead. This prop will be removed in a future version. */
+  /** @deprecated Use height instead. */
   maxHeight?: string;
 }
 
 /**
- * A collapsible chat thread component with keyboard shortcuts and thread management
- * @component
- * @example
- * ```tsx
- * <MessageThreadCollapsible
- *   defaultOpen={false}
- *   className="left-4" // Position on the left instead of right
- *   variant="default"
- * />
- * ```
- */
-
-/**
- * Custom hook for managing collapsible state with keyboard shortcuts
+ * Custom hook — uses ⌘J / Ctrl+J (NOT ⌘K, which is reserved for ControlBar)
  */
 const useCollapsibleState = (defaultOpen = false) => {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
   const isMac =
     typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
-  const shortcutText = isMac ? "⌘K" : "Ctrl+K";
+  const shortcutText = isMac ? "⌘J" : "Ctrl+J";
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+      // ⌘J / Ctrl+J — different from ControlBar's ⌘K
+      if ((event.metaKey || event.ctrlKey) && event.key === "j") {
         event.preventDefault();
         setIsOpen((prev) => !prev);
       }
@@ -87,18 +65,12 @@ const useCollapsibleState = (defaultOpen = false) => {
   return { isOpen, setIsOpen, shortcutText };
 };
 
-/**
- * Props for the CollapsibleContainer component
- */
 interface CollapsibleContainerProps extends React.HTMLAttributes<HTMLDivElement> {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }
 
-/**
- * Container component for the collapsible panel
- */
 const CollapsibleContainer = React.forwardRef<
   HTMLDivElement,
   CollapsibleContainerProps
@@ -108,7 +80,8 @@ const CollapsibleContainer = React.forwardRef<
     open={isOpen}
     onOpenChange={onOpenChange}
     className={cn(
-      "fixed bottom-4 right-4 w-full max-w-sm sm:max-w-md md:max-w-lg rounded-lg shadow-lg bg-background border border-border",
+      // Positioned bottom-right but ABOVE the ControlBar pill (bottom-14 instead of bottom-4)
+      "fixed bottom-14 right-4 w-full max-w-sm sm:max-w-md md:max-w-lg rounded-lg shadow-lg bg-background border border-border z-40",
       "transition-all duration-300 ease-in-out",
       className,
     )}
@@ -119,14 +92,12 @@ const CollapsibleContainer = React.forwardRef<
 ));
 CollapsibleContainer.displayName = "CollapsibleContainer";
 
-/**
- * Props for the CollapsibleTrigger component
- */
 interface CollapsibleTriggerProps {
   isOpen: boolean;
   shortcutText: string;
   onClose: () => void;
   onThreadChange: () => void;
+  threadLoading: boolean;
   config: {
     labels: {
       openState: string;
@@ -135,14 +106,12 @@ interface CollapsibleTriggerProps {
   };
 }
 
-/**
- * Trigger component for the collapsible panel
- */
 const CollapsibleTrigger = ({
   isOpen,
   shortcutText,
   onClose,
   onThreadChange,
+  threadLoading,
   config,
 }: CollapsibleTriggerProps) => (
   <>
@@ -171,6 +140,9 @@ const CollapsibleTrigger = ({
         <div className="flex items-center gap-2">
           <span>{config.labels.openState}</span>
           <ThreadDropdown onThreadChange={onThreadChange} />
+          {threadLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
         <button
           className="p-1 rounded-full hover:bg-muted/70 transition-colors cursor-pointer"
@@ -199,16 +171,35 @@ export const MessageThreadCollapsible = React.forwardRef<
     const { isOpen, setIsOpen, shortcutText } =
       useCollapsibleState(defaultOpen);
 
-    // Backward compatibility: prefer height, fall back to maxHeight
+    const { thread } = useTambo();
+
+    // Track thread loading — when thread is null/undefined or switching
+    const [threadLoading, setThreadLoading] = React.useState(false);
+    const prevThreadId = React.useRef<string | null>(null);
+
+    React.useEffect(() => {
+      const currentId = thread?.id ?? null;
+
+      if (prevThreadId.current !== null && currentId !== prevThreadId.current) {
+        // Thread is switching
+        setThreadLoading(true);
+      }
+
+      if (currentId) {
+        // Thread loaded
+        setThreadLoading(false);
+      }
+
+      prevThreadId.current = currentId;
+    }, [thread?.id]);
+
     const effectiveHeight = height ?? maxHeight;
 
     const handleThreadChange = React.useCallback(() => {
+      setThreadLoading(true);
       setIsOpen(true);
     }, [setIsOpen]);
 
-    /**
-     * Configuration for the MessageThreadCollapsible component
-     */
     const THREAD_CONFIG = {
       labels: {
         openState: "Conversations",
@@ -250,6 +241,7 @@ export const MessageThreadCollapsible = React.forwardRef<
           shortcutText={shortcutText}
           onClose={() => setIsOpen(false)}
           onThreadChange={handleThreadChange}
+          threadLoading={threadLoading}
           config={THREAD_CONFIG}
         />
         <Collapsible.Content>
@@ -257,19 +249,27 @@ export const MessageThreadCollapsible = React.forwardRef<
             className={cn("flex flex-col", effectiveHeight ? "" : "h-[80vh]")}
             style={effectiveHeight ? { height: effectiveHeight } : undefined}
           >
-            {/* Message thread content */}
-            <ScrollableMessageContainer className="p-4">
-              <ThreadContent variant={variant}>
-                <ThreadContentMessages />
-              </ThreadContent>
-            </ScrollableMessageContainer>
+            {/* Thread loading indicator */}
+            {threadLoading && (
+              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Loading thread...</span>
+              </div>
+            )}
 
-            {/* Message Suggestions Status */}
+            {/* Message thread content — only render when not loading */}
+            {!threadLoading && (
+              <ScrollableMessageContainer className="p-4">
+                <ThreadContent variant={variant}>
+                  <ThreadContentMessages />
+                </ThreadContent>
+              </ScrollableMessageContainer>
+            )}
+
             <MessageSuggestions>
               <MessageSuggestionsStatus />
             </MessageSuggestions>
 
-            {/* Message input */}
             <div className="p-4">
               <MessageInput>
                 <MessageInputTextarea placeholder="Type your message or paste images..." />
@@ -277,15 +277,12 @@ export const MessageThreadCollapsible = React.forwardRef<
                   <MessageInputFileButton />
                   <MessageInputMcpPromptButton />
                   <MessageInputMcpResourceButton />
-                  {/* Uncomment this to enable client-side MCP config modal button */}
-                  {/* <MessageInputMcpConfigButton /> */}
                   <MessageInputSubmitButton />
                 </MessageInputToolbar>
                 <MessageInputError />
               </MessageInput>
             </div>
 
-            {/* Message suggestions */}
             <MessageSuggestions initialSuggestions={defaultSuggestions}>
               <MessageSuggestionsList />
             </MessageSuggestions>

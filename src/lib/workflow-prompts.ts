@@ -25,7 +25,7 @@ export function buildPlanningPrompt(input: PlanPromptInput): {
 } {
   const { goal, sources, depth, outputFormat, maxResults, maxSteps } = input;
 
-  const system = `You are an expert research workflow planner for FlowSearch AI.
+  const system = `You are an expert research workflow planner for Tambo-Browser-(FlowSearch) AI.
   Break down research goals into precise, executable step chains.
   
   # STEP TYPES
@@ -144,7 +144,7 @@ export function buildSynthesisPrompt(input: ReportPromptInput): {
   const formatGuide =
     formatInstructions[outputFormat] || formatInstructions.summary;
 
-  const system = `You are a professional research report generator for FlowSearch AI.
+  const system = `You are a professional research report generator for Tambo-Browser-(FlowSearch) AI.
   Create well-structured, data-driven research reports from collected workflow data.
   
   # SECTION TYPES (use these exact values for "type")

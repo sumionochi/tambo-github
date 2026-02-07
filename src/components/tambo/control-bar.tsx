@@ -15,7 +15,6 @@ import {
   MessageInputFileButton,
   MessageInputMcpPromptButton,
   MessageInputMcpResourceButton,
-  // MessageInputMcpConfigButton,
 } from "@/components/tambo/message-input";
 import {
   ThreadContent,
@@ -23,40 +22,23 @@ import {
 } from "@/components/tambo/thread-content";
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
 
-/**
- * Props for the ControlBar component
- * @interface
- * @extends React.HTMLAttributes<HTMLDivElement>
- */
 export interface ControlBarProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** Keyboard shortcut for toggling the control bar (default: "mod+k") */
   hotkey?: string;
-  /**
-   * Controls the visual styling of messages in the thread.
-   * Possible values include: "default", "compact", etc.
-   * These values are defined in messageVariants from "@/components/tambo/message".
-   * @example variant="compact"
-   */
   variant?: VariantProps<typeof messageVariants>["variant"];
 }
 
-/**
- * A floating control bar component for quick access to chat functionality
- * @component
- * @example
- * ```tsx
- * <ControlBar
- *   hotkey="mod+k"
- *   className="custom-styles"
- * />
- * ```
- */
 export const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
   ({ className, hotkey = "mod+k", variant, ...props }, ref) => {
     const [open, setOpen] = React.useState(false);
+    // Gate rendering until after hydration to prevent Radix aria-controls mismatch
+    const [mounted, setMounted] = React.useState(false);
     const isMac =
       typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
     const { thread } = useTambo();
+
+    React.useEffect(() => {
+      setMounted(true);
+    }, []);
 
     React.useEffect(() => {
       const down = (e: KeyboardEvent) => {
@@ -72,10 +54,18 @@ export const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
       return () => document.removeEventListener("keydown", down);
     }, [hotkey, setOpen]);
 
+    // Don't render Dialog until after hydration — prevents Radix
+    // generating mismatched aria-controls IDs on server vs client
+    if (!mounted) return null;
+
     return (
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Trigger asChild>
-          <button className="fixed bottom-4 right-4 bg-background/50 backdrop-blur-sm border rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors">
+          {/* Bottom-LEFT to avoid overlapping MTC which is bottom-right */}
+          <button
+            className="fixed top-4 right-4 z-30 bg-background/50 backdrop-blur-sm border rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+            suppressHydrationWarning
+          >
             Talk to AI (
             <span suppressHydrationWarning>
               {hotkey.replace("mod", isMac ? "⌘" : "Ctrl")}
@@ -84,11 +74,11 @@ export const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
           </button>
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/40" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
           <Dialog.Content
             ref={ref}
             className={cn(
-              "fixed top-1/4 left-1/2 -translate-x-1/2 w-[440px] rounded-lg shadow-lg transition-all duration-200 outline-none",
+              "fixed top-1/4 left-1/2 -translate-x-1/2 w-[440px] rounded-lg shadow-lg transition-all duration-200 outline-none z-50",
               className,
             )}
             {...props}
@@ -103,15 +93,13 @@ export const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
                       <MessageInputFileButton />
                       <MessageInputMcpPromptButton />
                       <MessageInputMcpResourceButton />
-                      {/* Uncomment this to enable client-side MCP config modal button */}
-                      {/* <MessageInputMcpConfigButton /> */}
                       <MessageInputSubmitButton />
                     </MessageInputToolbar>
                     <MessageInputError />
                   </MessageInput>
                 </div>
               </div>
-              {thread?.messages?.length > 0 && (
+              {thread?.messages && thread.messages.length > 0 && (
                 <ScrollableMessageContainer className="bg-background border rounded-lg p-4 max-h-[500px]">
                   <ThreadContent variant={variant}>
                     <ThreadContentMessages />

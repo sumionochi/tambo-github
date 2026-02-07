@@ -1,9 +1,10 @@
 // components/interactable/ImageStudio.tsx
+// REDESIGNED: Cream/Sage palette, polished image cards, soft transitions
 'use client'
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { Image as ImageIcon, Download, Trash2, RefreshCw } from 'lucide-react'
+import { Image as ImageIcon, Download, Trash2, RefreshCw, X as XIcon, Sparkles } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { ConfirmDialog } from '@/components/dialog/ConfirmDialog'
 import { EditWithTamboButton } from '@/components/tambo/edit-with-tambo-button'
@@ -23,68 +24,35 @@ interface GeneratedImage {
 }
 
 function ImageStudio({ variations: initialVariations, currentPrompt }: ImageStudioProps) {
-  const [variations, setVariations] = useTamboComponentState(
-    "variations",
-    initialVariations || [],
-    initialVariations || []
-  )
-
-  const [prompt, setPrompt] = useTamboComponentState(
-    "prompt",
-    currentPrompt || "",
-    currentPrompt || ""
-  )
-
+  const [variations, setVariations] = useTamboComponentState("variations", initialVariations || [], initialVariations || [])
+  const [prompt, setPrompt] = useTamboComponentState("prompt", currentPrompt || "", currentPrompt || "")
   const [selectedVariation, setSelectedVariation] = useState<string | null>(null)
   const [images, setImages] = useState<GeneratedImage[]>([])
   const [loading, setLoading] = useState(false)
   const hasLoadedRef = useRef(false)
   const isLoadingRef = useRef(false)
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; imageId: string; variationCount: number } | null>(null)
 
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean
-    imageId: string
-    variationCount: number
-  } | null>(null)
-
-  // Load generated images on mount
   useEffect(() => {
-    if (!hasLoadedRef.current && !isLoadingRef.current) {
-      loadImages()
-    }
+    if (!hasLoadedRef.current && !isLoadingRef.current) loadImages()
   }, [])
 
   const loadImages = async () => {
-    if (isLoadingRef.current) {
-      console.log('⏭️ Skipping duplicate studio load')
-      return
-    }
-
+    if (isLoadingRef.current) return
     try {
       isLoadingRef.current = true
       setLoading(true)
-      
-      console.log('🎨 Fetching generated images...')
       const response = await fetch('/api/studio')
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Loaded', data.images.length, 'generated images')
         setImages(data.images || [])
         hasLoadedRef.current = true
       }
-    } catch (error) {
-      console.error('Failed to load images:', error)
-    } finally {
-      setLoading(false)
-      isLoadingRef.current = false
-    }
+    } catch (error) { console.error('Failed to load images:', error) }
+    finally { setLoading(false); isLoadingRef.current = false }
   }
 
-  const handleRefresh = () => {
-    hasLoadedRef.current = false
-    loadImages()
-  }
+  const handleRefresh = () => { hasLoadedRef.current = false; loadImages() }
 
   const handleDownload = (imageUrl: string, index: number) => {
     const link = document.createElement('a')
@@ -97,47 +65,45 @@ function ImageStudio({ variations: initialVariations, currentPrompt }: ImageStud
 
   const handleDeleteImage = async (imageId: string) => {
     try {
-      console.log('🗑️ Deleting image:', imageId)
-      
-      const response = await fetch(`/api/studio/${imageId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        setImages(images.filter(img => img.id !== imageId))
-        console.log('✅ Image deleted')
-      } else {
-        console.error('❌ Failed to delete image')
-      }
-    } catch (error) {
-      console.error('Delete image error:', error)
-    }
+      const response = await fetch(`/api/studio/${imageId}`, { method: 'DELETE' })
+      if (response.ok) setImages(images.filter(img => img.id !== imageId))
+    } catch (error) { console.error('Delete image error:', error) }
   }
 
+  // ─── Loading ───
   if (loading && images.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-600">Loading studio...</p>
+        <div className="text-center fs-animate-in">
+          <div className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4"
+            style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+          <p style={{ color: 'var(--fs-text-muted)' }}>Loading studio...</p>
         </div>
       </div>
     )
   }
 
+  // ─── Empty ───
   if (images.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center text-gray-500">
-          <ImageIcon size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No Generated Images Yet</p>
-          <p className="text-sm mt-2">Search for images and ask AI to edit them</p>
-          <button
-            onClick={handleRefresh}
-            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
-          >
-            <RefreshCw size={16} />
-            Refresh
+        <div className="text-center fs-animate-in" style={{ maxWidth: 320 }}>
+          <div className="mx-auto mb-5 w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--fs-sage-50)' }}>
+            <Sparkles size={28} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+          </div>
+          <p className="text-lg font-semibold" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+            No Generated Images Yet
+          </p>
+          <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--fs-text-muted)' }}>
+            Search for images and ask AI to edit them
+          </p>
+          <button onClick={handleRefresh}
+            className="mt-5 px-5 py-2.5 text-sm font-medium rounded-xl inline-flex items-center gap-2 transition-all"
+            style={{ background: 'var(--fs-sage-600)', color: 'var(--fs-text-on-green)', boxShadow: 'var(--fs-shadow-sm)', transitionDuration: 'var(--fs-duration-normal)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)' }}>
+            <RefreshCw size={15} /> Refresh
           </button>
         </div>
       </div>
@@ -146,107 +112,110 @@ function ImageStudio({ variations: initialVariations, currentPrompt }: ImageStud
 
   return (
     <>
-      <div className="p-6 space-y-6 overflow-y-auto h-full">
-        {/* Header with EditWithTamboButton */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-6 md:p-8 overflow-y-auto h-full fs-scrollbar">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 fs-animate-in">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Image Studio</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+              Image Studio
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>
               {images.length} generation{images.length !== 1 ? 's' : ''}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <EditWithTamboButton 
-              tooltip="Edit images with AI"
-              description="Regenerate variations, modify images, or create new edits using natural language"
-            />
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-              title="Refresh studio"
-            >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
+            <EditWithTamboButton tooltip="Edit images with AI" description="Regenerate variations, modify images, or create new edits using natural language" />
+            <RefreshBtn loading={loading} onClick={handleRefresh} />
           </div>
         </div>
 
-        {/* Current Prompt */}
+        {/* Current Prompt Banner */}
         {currentPrompt && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-purple-900 mb-1">Current Edit Prompt:</p>
-            <p className="text-purple-800">{currentPrompt}</p>
+          <div className="rounded-2xl p-4 mb-6 fs-animate-in"
+            style={{ background: 'var(--fs-sage-50)', border: '1px solid var(--fs-sage-200)' }}>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--fs-sage-600)' }}>
+              Current Edit Prompt
+            </p>
+            <p className="text-sm" style={{ color: 'var(--fs-sage-800)' }}>{currentPrompt}</p>
           </div>
         )}
 
         {/* Image Sessions */}
-        <div className="space-y-8">
+        <div className="space-y-8 fs-stagger">
           {images.map((image) => (
-            <div key={image.id} className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
+            <div key={image.id}
+              className="rounded-2xl p-6 transition-all fs-animate-in"
+              style={{
+                background: 'var(--fs-cream-50)', border: '1px solid var(--fs-border-light)',
+                boxShadow: 'var(--fs-shadow-sm)', transitionDuration: 'var(--fs-duration-normal)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)' }}>
+
+              {/* Session Header */}
+              <div className="flex items-start justify-between mb-5">
                 <div>
-                  <h3 className="font-semibold text-gray-900">Generated Variations</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {new Date(image.createdAt).toLocaleString()}
+                  <h3 className="font-semibold" style={{ color: 'var(--fs-text-primary)' }}>Generated Variations</h3>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--fs-text-muted)' }}>
+                    {new Date(image.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 <button
-                  onClick={() => setConfirmDialog({
-                    isOpen: true,
-                    imageId: image.id,
-                    variationCount: image.variations.length,
-                  })}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
-                  title="Delete all"
-                >
-                  <Trash2 size={18} />
+                  onClick={() => setConfirmDialog({ isOpen: true, imageId: image.id, variationCount: image.variations.length })}
+                  className="p-2 rounded-xl transition-all"
+                  style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-text-muted)'; e.currentTarget.style.background = 'transparent' }}
+                  title="Delete all">
+                  <Trash2 size={16} strokeWidth={1.8} />
                 </button>
               </div>
 
-              {/* Original Image */}
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">Original:</p>
-                <img
-                  src={image.originalUrl}
-                  alt="Original"
-                  className="w-48 h-48 object-cover rounded-lg border border-gray-300"
-                />
+              {/* Original */}
+              <div className="mb-5">
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--fs-text-muted)' }}>Original</p>
+                <img src={image.originalUrl} alt="Original"
+                  className="w-44 h-44 object-cover rounded-xl"
+                  style={{ border: '1px solid var(--fs-border-light)' }} />
               </div>
 
-              {/* Generated Variations */}
+              {/* Variations Grid */}
               <div>
-                <p className="text-sm text-gray-600 mb-2">
-                  Variations ({image.variations.length}):
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--fs-text-muted)' }}>
+                  Variations ({image.variations.length})
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {image.variations.map((variation, index) => (
-                    <div
-                      key={index}
-                      className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                    <div key={index}
+                      className="relative group aspect-square rounded-xl overflow-hidden cursor-pointer transition-all"
+                      style={{
+                        background: 'var(--fs-cream-200)',
+                        border: '1px solid var(--fs-border-light)',
+                        transitionDuration: 'var(--fs-duration-normal)',
+                      }}
                       onClick={() => setSelectedVariation(variation)}
-                    >
-                      <img
-                        src={variation}
-                        alt={`Variation ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--fs-sage-300)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--fs-border-light)'; e.currentTarget.style.boxShadow = 'none' }}>
+                      <img src={variation} alt={`Variation ${index + 1}`} className="w-full h-full object-cover" />
+
+                      {/* Hover Overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center"
+                        style={{ transitionDuration: 'var(--fs-duration-normal)' }}>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDownload(variation, index)
+                          onClick={(e) => { e.stopPropagation(); handleDownload(variation, index) }}
+                          className="opacity-0 group-hover:opacity-100 transition-all p-2.5 rounded-xl"
+                          style={{
+                            background: 'rgba(255,255,255,0.95)', color: 'var(--fs-text-primary)',
+                            boxShadow: 'var(--fs-shadow-md)', transitionDuration: 'var(--fs-duration-normal)',
                           }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-gray-900 p-2 rounded-lg hover:bg-gray-100"
-                          title="Download"
-                        >
-                          <Download size={18} />
+                          title="Download">
+                          <Download size={16} strokeWidth={1.8} />
                         </button>
                       </div>
 
-                      {/* Image Number Badge */}
-                      <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded">
+                      {/* Badge */}
+                      <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                        style={{ background: 'rgba(0,0,0,0.6)', color: 'white' }}>
                         #{index + 1}
                       </div>
                     </div>
@@ -257,42 +226,50 @@ function ImageStudio({ variations: initialVariations, currentPrompt }: ImageStud
           ))}
         </div>
 
-        {/* Image Preview Modal */}
+        {/* ── Preview Modal ── */}
         {selectedVariation && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
-            onClick={() => setSelectedVariation(null)}
-          >
-            <div className="relative max-w-4xl max-h-[90vh]">
-              <img
-                src={selectedVariation}
-                alt="Preview"
-                className="max-w-full max-h-[90vh] object-contain rounded-lg"
-              />
-              <button
-                onClick={() => setSelectedVariation(null)}
-                className="absolute top-4 right-4 bg-white text-gray-900 p-2 rounded-full hover:bg-gray-100"
-              >
-                ✕
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(31, 46, 31, 0.80)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setSelectedVariation(null)}>
+            <div className="relative max-w-4xl max-h-[90vh] fs-animate-scale-in">
+              <img src={selectedVariation} alt="Preview"
+                className="max-w-full max-h-[90vh] object-contain rounded-2xl"
+                style={{ boxShadow: 'var(--fs-shadow-lg)' }} />
+              <button onClick={() => setSelectedVariation(null)}
+                className="absolute top-3 right-3 p-2 rounded-xl transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.9)', color: 'var(--fs-text-primary)',
+                  boxShadow: 'var(--fs-shadow-md)', transitionDuration: 'var(--fs-duration-fast)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'white' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.9)' }}>
+                <XIcon size={16} strokeWidth={2} />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Confirm Delete Dialog */}
       {confirmDialog && (
-        <ConfirmDialog
-          isOpen={confirmDialog.isOpen}
-          onClose={() => setConfirmDialog(null)}
-          onConfirm={() => handleDeleteImage(confirmDialog.imageId)}
-          title="Delete Image Set"
+        <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(null)}
+          onConfirm={() => handleDeleteImage(confirmDialog.imageId)} title="Delete Image Set"
           message={`Are you sure you want to delete this image set with ${confirmDialog.variationCount} variation${confirmDialog.variationCount !== 1 ? 's' : ''}? This action cannot be undone.`}
-          confirmText="Delete"
-          confirmStyle="danger"
-        />
+          confirmText="Delete" confirmStyle="danger" />
       )}
     </>
+  )
+}
+
+function RefreshBtn({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} disabled={loading}
+      className="p-2.5 rounded-xl transition-all disabled:opacity-50"
+      style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-normal)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)'; e.currentTarget.style.color = 'var(--fs-text-primary)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--fs-text-muted)' }}
+      title="Refresh">
+      <RefreshCw size={18} className={loading ? 'animate-spin' : ''} strokeWidth={1.8} />
+    </button>
   )
 }
 

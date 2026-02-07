@@ -17,7 +17,7 @@ import {
   useTamboCurrentComponent,
   useTamboThreadInput,
 } from "@tambo-ai/react";
-import { MessageGenerationStage } from "@/components/tambo/message-suggestions";
+import { MessageGenerationStage } from "@/components/tambo/message-generation-stage";
 import { cn } from "@/lib/utils";
 import type { Editor } from "@tiptap/react";
 import { Bot, ChevronDown, X } from "lucide-react";

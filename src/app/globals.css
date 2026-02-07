@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -91,6 +92,56 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── FlowSearch Core Palette ── */
+  --fs-cream-50:  #FDFCF9;
+  --fs-cream-100: #FAF8F3;
+  --fs-cream-200: #F3EFE7;
+  --fs-cream-300: #E8E2D6;
+  --fs-cream-400: #D4CCBC;
+
+  --fs-sage-50:   #F2F7F2;
+  --fs-sage-100:  #E1EDE1;
+  --fs-sage-200:  #C4DBC4;
+  --fs-sage-300:  #9DC39D;
+  --fs-sage-400:  #74A874;
+  --fs-sage-500:  #5B8F5B;
+  --fs-sage-600:  #4A7A4A;
+  --fs-sage-700:  #3D643D;
+  --fs-sage-800:  #335233;
+  --fs-sage-900:  #2A432A;
+
+  --fs-text-primary:   #1F2E1F;
+  --fs-text-secondary: #5A6B5A;
+  --fs-text-muted:     #8A9A8A;
+  --fs-text-on-green:  #FFFFFF;
+
+  --fs-border:       #E4E0D8;
+  --fs-border-light: #EEEBE4;
+
+  --fs-shadow-sm:  0 1px 3px rgba(42, 67, 42, 0.04), 0 1px 2px rgba(42, 67, 42, 0.03);
+  --fs-shadow-md:  0 4px 12px rgba(42, 67, 42, 0.06), 0 2px 4px rgba(42, 67, 42, 0.04);
+  --fs-shadow-lg:  0 12px 40px rgba(42, 67, 42, 0.08), 0 4px 12px rgba(42, 67, 42, 0.04);
+  --fs-shadow-glow: 0 0 20px rgba(91, 143, 91, 0.15);
+
+  /* ── Transitions ── */
+  --fs-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --fs-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --fs-duration-fast: 150ms;
+  --fs-duration-normal: 250ms;
+  --fs-duration-slow: 400ms;
+
+  /* ── Radii ── */
+  --fs-radius-sm: 8px;
+  --fs-radius-md: 12px;
+  --fs-radius-lg: 16px;
+  --fs-radius-xl: 20px;
+  --fs-radius-full: 9999px;
+
+  /* ── Sidebar ── */
+  --fs-sidebar-width: 240px;
+  --fs-sidebar-collapsed: 72px;
+  --fs-header-height: 64px;
 }
 
 .dark {
@@ -143,55 +194,167 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: Arial, Helvetica, sans-serif;
   }
 }
 
-/*
-This is a custom animation for the interactable components.
-It's used to highlight the fields that have been updated.
-You can remove this if you don't want to use it.
-*/
+/* ── FlowSearch Body Override (unlayered = higher priority than @layer base) ── */
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--fs-cream-100);
+  color: var(--fs-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─────────────────────────────────────────────────────
+   Tambo Animations (keep existing)
+   ───────────────────────────────────────────────────── */
 
 @keyframes flash {
-  0%,
-  100% {
-    background-color: transparent;
-  }
-  50% {
-    background-color: rgb(59 130 246 / 0.3);
-  }
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgb(59 130 246 / 0.3); }
 }
-
 .animate-flash {
   animation: flash 1s ease-in-out;
 }
 
-/*
-Animated gradient for thinking text, creates a shimmering effect that moves across the text.
-*/
 @keyframes thinking-gradient {
-  0% {
-    background-position: -200% center;
-  }
-  100% {
-    background-position: 200% center;
-  }
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
-
 .animate-thinking-gradient {
-  /* Fallback */
   background: linear-gradient(90deg, #666 0%, #bbb 50%, #666 100%);
-  /* Preferred (overrides when supported) */
-  background: linear-gradient(
-    90deg,
-    oklch(0.14 0 0) 0%,
-    oklch(0.7 0 0) 50%,
-    oklch(0.14 0 0) 100%
-  );
+  background: linear-gradient(90deg, oklch(0.14 0 0) 0%, oklch(0.7 0 0) 50%, oklch(0.14 0 0) 100%);
   background-size: 200% 100%;
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: thinking-gradient 2s linear infinite;
+}
+
+/* ─────────────────────────────────────────────────────
+   FlowSearch Animations & Utilities
+   ───────────────────────────────────────────────────── */
+
+@keyframes fs-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fs-slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fs-slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fs-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fs-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fs-pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes fs-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fs-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* Utility animation classes */
+.fs-animate-in {
+  animation: fs-fade-in var(--fs-duration-slow) var(--fs-ease-out) both;
+}
+.fs-animate-slide-right {
+  animation: fs-slide-in-right var(--fs-duration-slow) var(--fs-ease-out) both;
+}
+.fs-animate-slide-left {
+  animation: fs-slide-in-left var(--fs-duration-slow) var(--fs-ease-out) both;
+}
+.fs-animate-slide-up {
+  animation: fs-slide-up var(--fs-duration-slow) var(--fs-ease-out) both;
+}
+.fs-animate-scale-in {
+  animation: fs-scale-in var(--fs-duration-normal) var(--fs-ease-out) both;
+}
+
+/* Staggered children entrance */
+.fs-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.fs-stagger > *:nth-child(2) { animation-delay: 50ms; }
+.fs-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.fs-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.fs-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.fs-stagger > *:nth-child(6) { animation-delay: 250ms; }
+.fs-stagger > *:nth-child(7) { animation-delay: 300ms; }
+.fs-stagger > *:nth-child(8) { animation-delay: 350ms; }
+.fs-stagger > *:nth-child(9) { animation-delay: 400ms; }
+.fs-stagger > *:nth-child(10) { animation-delay: 450ms; }
+
+/* Glass effects */
+.fs-glass {
+  background: rgba(253, 252, 249, 0.80);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(228, 224, 216, 0.5);
+}
+.fs-glass-dark {
+  background: rgba(31, 46, 31, 0.70);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(91, 143, 91, 0.2);
+}
+
+/* Custom scrollbar */
+.fs-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.fs-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fs-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--fs-cream-300);
+  border-radius: var(--fs-radius-full);
+}
+.fs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--fs-cream-400);
+}
+
+/* Focus ring */
+.fs-focus-ring:focus-visible {
+  outline: 2px solid var(--fs-sage-400);
+  outline-offset: 2px;
+  border-radius: var(--fs-radius-sm);
+}
+
+/* Subtle noise texture */
+.fs-noise::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  :root {
+    --fs-header-height: 56px;
+  }
 }

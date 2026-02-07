@@ -1,9 +1,10 @@
 // components/interactable/Collections.tsx
+// REDESIGNED: Cream/Sage palette, polished cards, soft transitions
 'use client'
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { BookMarked, Trash2, ExternalLink, RefreshCw, Edit2 } from 'lucide-react'
+import { BookMarked, Trash2, ExternalLink, RefreshCw, Edit2, ChevronDown, ChevronUp, FolderOpen } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { ConfirmDialog } from '@/components/dialog/ConfirmDialog'
 import { EditWithTamboButton } from '@/components/tambo/edit-with-tambo-button'
@@ -24,6 +25,13 @@ export const CollectionsPropsSchema = z.object({
 })
 
 type CollectionsProps = z.infer<typeof CollectionsPropsSchema>
+
+const typeColors: Record<string, { bg: string; text: string }> = {
+  article: { bg: 'var(--fs-sage-50)', text: 'var(--fs-sage-700)' },
+  pin:     { bg: '#FFF7ED', text: '#9A3412' },
+  repo:    { bg: '#EFF6FF', text: '#1D4ED8' },
+  image:   { bg: '#FDF2F8', text: '#BE185D' },
+}
 
 function Collections({ collections: initialCollections }: CollectionsProps) {
   const [collections, setCollections] = useTamboComponentState(
@@ -48,7 +56,6 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
     name: string
   } | null>(null)
 
-  // Load collections from database on mount
   useEffect(() => {
     if (!hasLoadedRef.current && !isLoadingRef.current) {
       loadCollections()
@@ -56,21 +63,13 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
   }, [])
 
   const loadCollections = async () => {
-    if (isLoadingRef.current) {
-      console.log('⏭️ Skipping duplicate load request')
-      return
-    }
-
+    if (isLoadingRef.current) return
     try {
       isLoadingRef.current = true
       setLoading(true)
-      
-      console.log('📚 Fetching collections...')
       const response = await fetch('/api/collections')
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Loaded', data.collections.length, 'collections')
         setCollections(data.collections || [])
         hasLoadedRef.current = true
       }
@@ -91,17 +90,9 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
 
   const handleDeleteCollection = async (collectionId: string) => {
     try {
-      console.log('🗑️ Deleting collection:', collectionId)
-      
-      const response = await fetch(`/api/collections/${collectionId}`, {
-        method: 'DELETE',
-      })
-
+      const response = await fetch(`/api/collections/${collectionId}`, { method: 'DELETE' })
       if (response.ok) {
         setCollections(safeCollections.filter(c => c.id !== collectionId))
-        console.log('✅ Collection deleted')
-      } else {
-        console.error('❌ Failed to delete collection')
       }
     } catch (error) {
       console.error('Delete collection error:', error)
@@ -110,25 +101,14 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
 
   const handleDeleteItem = async (collectionId: string, itemId: string) => {
     try {
-      console.log('🗑️ Deleting item:', itemId, 'from collection:', collectionId)
-      
-      const response = await fetch(`/api/collections/${collectionId}/items/${itemId}`, {
-        method: 'DELETE',
-      })
-
+      const response = await fetch(`/api/collections/${collectionId}/items/${itemId}`, { method: 'DELETE' })
       if (response.ok) {
         setCollections(safeCollections.map(col => {
           if (col.id === collectionId) {
-            return {
-              ...col,
-              items: col.items.filter(item => item.id !== itemId)
-            }
+            return { ...col, items: col.items.filter(item => item.id !== itemId) }
           }
           return col
         }))
-        console.log('✅ Item deleted')
-      } else {
-        console.error('❌ Failed to delete item')
       }
     } catch (error) {
       console.error('Delete item error:', error)
@@ -137,51 +117,67 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
 
   const handleRenameCollection = async (collectionId: string, newName: string) => {
     try {
-      console.log('✏️ Renaming collection:', collectionId, 'to:', newName)
-      
       const response = await fetch(`/api/collections/${collectionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newName }),
       })
-  
       if (response.ok) {
         setCollections(safeCollections.map(c =>
           c.id === collectionId ? { ...c, name: newName } : c
         ))
         setEditingCollection(null)
-        console.log('✅ Collection renamed')
-      } else {
-        console.error('❌ Failed to rename collection')
       }
     } catch (error) {
       console.error('Rename collection error:', error)
     }
   }
 
+  // ─── Loading State ───
   if (loading && safeCollections.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-600">Loading collections...</p>
+        <div className="text-center fs-animate-in">
+          <div
+            className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4"
+            style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }}
+          />
+          <p style={{ color: 'var(--fs-text-muted)' }}>Loading collections...</p>
         </div>
       </div>
     )
   }
 
+  // ─── Empty State ───
   if (safeCollections.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center text-gray-500">
-          <BookMarked size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No Collections Yet</p>
-          <p className="text-sm mt-2">Start searching and bookmark items to create collections</p>
+        <div className="text-center fs-animate-in" style={{ maxWidth: 320 }}>
+          <div
+            className="mx-auto mb-5 w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--fs-sage-50)' }}
+          >
+            <BookMarked size={28} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+          </div>
+          <p className="text-lg font-semibold" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+            No Collections Yet
+          </p>
+          <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--fs-text-muted)' }}>
+            Start searching and bookmark items to create collections
+          </p>
           <button
             onClick={handleRefresh}
-            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+            className="mt-5 px-5 py-2.5 text-sm font-medium rounded-xl inline-flex items-center gap-2 transition-all"
+            style={{
+              background: 'var(--fs-sage-600)',
+              color: 'var(--fs-text-on-green)',
+              boxShadow: 'var(--fs-shadow-sm)',
+              transitionDuration: 'var(--fs-duration-normal)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)' }}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={15} />
             Refresh
           </button>
         </div>
@@ -189,167 +185,184 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
     )
   }
 
+  // ─── Main View ───
   return (
     <>
-      <div className="p-6 space-y-4 overflow-y-auto h-full">
-        {/* Header with EditWithTamboButton */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-6 md:p-8 overflow-y-auto h-full fs-scrollbar">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 fs-animate-in">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Collections</h2>
-            <p className="text-sm text-gray-500 mt-1">{safeCollections.length} collections</p>
+            <h2
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}
+            >
+              My Collections
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>
+              {safeCollections.length} collection{safeCollections.length !== 1 ? 's' : ''}
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <EditWithTamboButton 
+            <EditWithTamboButton
               tooltip="Edit collections with AI"
               description="Organize, rename, merge, or manage your collections using natural language commands"
             />
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+              className="p-2.5 rounded-xl transition-all disabled:opacity-50"
+              style={{
+                color: 'var(--fs-text-muted)',
+                transitionDuration: 'var(--fs-duration-normal)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)'; e.currentTarget.style.color = 'var(--fs-text-primary)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--fs-text-muted)' }}
               title="Refresh collections"
             >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} strokeWidth={1.8} />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {safeCollections.map((collection) => (
-            <div
-              key={collection.id}
-              className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                {editingCollection?.id === collection.id ? (
-                  <input
-                    type="text"
-                    value={editingCollection.name}
-                    onChange={(e) => setEditingCollection({ ...editingCollection, name: e.target.value })}
-                    onBlur={() => {
-                      if (editingCollection.name.trim() && editingCollection.name !== collection.name) {
-                        handleRenameCollection(collection.id, editingCollection.name.trim())
-                      } else {
-                        setEditingCollection(null)
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (editingCollection.name.trim()) {
+        {/* Collection Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 fs-stagger">
+          {safeCollections.map((collection) => {
+            const isExpanded = expandedCollection === collection.id
+            return (
+              <div
+                key={collection.id}
+                className="rounded-2xl p-5 transition-all fs-animate-in"
+                style={{
+                  background: 'var(--fs-cream-50)',
+                  border: '1px solid var(--fs-border-light)',
+                  boxShadow: 'var(--fs-shadow-sm)',
+                  transitionDuration: 'var(--fs-duration-normal)',
+                  transitionTimingFunction: 'var(--fs-ease-out)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)'; e.currentTarget.style.borderColor = 'var(--fs-sage-200)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)'; e.currentTarget.style.borderColor = 'var(--fs-border-light)' }}
+              >
+                {/* Collection Header */}
+                <div className="flex items-start justify-between mb-4">
+                  {editingCollection?.id === collection.id ? (
+                    <input
+                      type="text"
+                      value={editingCollection.name}
+                      onChange={(e) => setEditingCollection({ ...editingCollection, name: e.target.value })}
+                      onBlur={() => {
+                        if (editingCollection.name.trim() && editingCollection.name !== collection.name) {
                           handleRenameCollection(collection.id, editingCollection.name.trim())
+                        } else {
+                          setEditingCollection(null)
                         }
-                      } else if (e.key === 'Escape') {
-                        setEditingCollection(null)
-                      }
-                    }}
-                    className="flex-1 font-semibold text-gray-900 border-b-2 border-blue-500 outline-none bg-transparent px-1"
-                    autoFocus
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center gap-2 group">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{collection.name}</h3>
-                      <p className="text-sm text-gray-500">{collection.items.length} items</p>
-                    </div>
-                    <button
-                      onClick={() => setEditingCollection({ id: collection.id, name: collection.name })}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-blue-600 p-1"
-                      title="Rename collection"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                  </div>
-                )}
-                <button
-                  onClick={() => setConfirmDialog({
-                    isOpen: true,
-                    collectionId: collection.id,
-                    collectionName: collection.name,
-                  })}
-                  className="text-gray-400 hover:text-red-500 transition-colors ml-2"
-                  title="Delete collection"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
-              {/* Preview items */}
-              <div className="space-y-2">
-                {collection.items.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm"
-                  >
-                    {item.thumbnail && (
-                      <img
-                        src={item.thumbnail}
-                        alt={item.title}
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-gray-700">{item.title}</p>
-                      <p className="text-xs text-gray-500 capitalize">{item.type}</p>
-                    </div>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700"
-                      title="Open link"
-                    >
-                      <ExternalLink size={14} />
-                    </a>
-                  </div>
-                ))}
-
-                {collection.items.length > 3 && (
-                  <button
-                    onClick={() => setExpandedCollection(
-                      expandedCollection === collection.id ? null : collection.id
-                    )}
-                    className="text-sm text-blue-600 hover:text-blue-700 w-full text-center py-1"
-                  >
-                    {expandedCollection === collection.id
-                      ? 'Show less'
-                      : `Show ${collection.items.length - 3} more`
-                    }
-                  </button>
-                )}
-
-                {/* Expanded items */}
-                {expandedCollection === collection.id && (
-                  <div className="space-y-2 mt-2">
-                    {collection.items.slice(3).map((item) => (
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && editingCollection.name.trim()) {
+                          handleRenameCollection(collection.id, editingCollection.name.trim())
+                        } else if (e.key === 'Escape') {
+                          setEditingCollection(null)
+                        }
+                      }}
+                      className="flex-1 font-semibold bg-transparent outline-none px-1 pb-1"
+                      style={{
+                        color: 'var(--fs-text-primary)',
+                        borderBottom: '2px solid var(--fs-sage-500)',
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="flex-1 flex items-center gap-3 group min-w-0">
                       <div
-                        key={item.id}
-                        className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm"
+                        className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                        style={{ background: 'var(--fs-sage-100)' }}
                       >
-                        {item.thumbnail && (
-                          <img
-                            src={item.thumbnail}
-                            alt={item.title}
-                            className="w-8 h-8 rounded object-cover"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate text-gray-700">{item.title}</p>
-                          <p className="text-xs text-gray-500 capitalize">{item.type}</p>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteItem(collection.id, item.id)}
-                          className="text-gray-400 hover:text-red-500"
-                          title="Remove item"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <FolderOpen size={16} style={{ color: 'var(--fs-sage-600)' }} strokeWidth={1.8} />
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold truncate" style={{ color: 'var(--fs-text-primary)' }}>
+                          {collection.name}
+                        </h3>
+                        <p className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>
+                          {collection.items.length} item{collection.items.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditingCollection({ id: collection.id, name: collection.name })}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg"
+                        style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-normal)' }}
+                        title="Rename collection"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setConfirmDialog({
+                      isOpen: true,
+                      collectionId: collection.id,
+                      collectionName: collection.name,
+                    })}
+                    className="p-1.5 rounded-lg transition-all ml-2"
+                    style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-text-muted)'; e.currentTarget.style.background = 'transparent' }}
+                    title="Delete collection"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+
+                {/* Preview Items */}
+                <div className="space-y-2">
+                  {collection.items.slice(0, 3).map((item) => (
+                    <CollectionItem key={item.id} item={item} />
+                  ))}
+
+                  {collection.items.length > 3 && (
+                    <button
+                      onClick={() => setExpandedCollection(isExpanded ? null : collection.id)}
+                      className="w-full flex items-center justify-center gap-1.5 text-sm font-medium py-2 rounded-xl transition-all"
+                      style={{
+                        color: 'var(--fs-sage-600)',
+                        transitionDuration: 'var(--fs-duration-normal)',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-50)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                    >
+                      {isExpanded ? (
+                        <>Show less <ChevronUp size={14} /></>
+                      ) : (
+                        <>Show {collection.items.length - 3} more <ChevronDown size={14} /></>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Expanded items */}
+                  {isExpanded && (
+                    <div className="space-y-2 pt-1 fs-animate-in">
+                      {collection.items.slice(3).map((item) => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <CollectionItem item={item} />
+                          </div>
+                          <button
+                            onClick={() => handleDeleteItem(collection.id, item.id)}
+                            className="shrink-0 p-1 rounded-lg transition-all"
+                            style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-text-muted)' }}
+                            title="Remove item"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -366,6 +379,57 @@ function Collections({ collections: initialCollections }: CollectionsProps) {
         />
       )}
     </>
+  )
+}
+
+/** Single collection item row */
+function CollectionItem({ item }: { item: { id: string; type: string; url: string; thumbnail?: string; title: string } }) {
+  const colors = typeColors[item.type] || typeColors.article
+  return (
+    <div
+      className="flex items-center gap-2.5 p-2.5 rounded-xl text-sm transition-all group"
+      style={{
+        background: 'var(--fs-cream-100)',
+        transitionDuration: 'var(--fs-duration-fast)',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-cream-100)' }}
+    >
+      {item.thumbnail ? (
+        <img
+          src={item.thumbnail}
+          alt={item.title}
+          className="w-8 h-8 rounded-lg object-cover shrink-0"
+          style={{ border: '1px solid var(--fs-border-light)' }}
+        />
+      ) : (
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-semibold uppercase"
+          style={{ background: colors.bg, color: colors.text }}
+        >
+          {item.type.charAt(0)}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="truncate font-medium" style={{ color: 'var(--fs-text-primary)', fontSize: 13 }}>{item.title}</p>
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wider"
+          style={{ color: colors.text }}
+        >
+          {item.type}
+        </span>
+      </div>
+      <a
+        href={item.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+        style={{ color: 'var(--fs-sage-600)', transitionDuration: 'var(--fs-duration-fast)' }}
+        title="Open link"
+      >
+        <ExternalLink size={13} />
+      </a>
+    </div>
   )
 }
 

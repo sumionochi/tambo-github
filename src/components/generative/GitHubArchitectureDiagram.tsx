@@ -1,22 +1,14 @@
 // components/generative/GitHubArchitectureDiagram.tsx
+// REDESIGNED: Cream/Sage palette, sage-tinted node styling, polished layout
 'use client'
 
 import { z } from 'zod'
 import { useState, useEffect } from 'react'
 import { useTamboStreamStatus } from '@tambo-ai/react'
 import {
-  Code,
-  Server,
-  Database,
-  Layers,
-  GitBranch,
-  Zap,
-  FileText,
-  Loader,
-  ExternalLink,
+  Code, Server, Database, Layers, GitBranch, Zap, FileText, Loader, ExternalLink, Sparkles
 } from 'lucide-react'
 
-// Zod Schema
 export const GitHubArchitectureDiagramPropsSchema = z.object({
   repoOwner: z.string().describe('Repository owner username'),
   repoName: z.string().describe('Repository name'),
@@ -32,257 +24,192 @@ interface ArchNode {
   description?: string
   language?: string
   path?: string
-  connections: string[] // IDs of connected nodes
+  connections: string[]
 }
 
 interface RepoStructure {
-  name: string
-  fullName: string
-  description: string
-  language: string
-  url: string
-  nodes: ArchNode[]
+  name: string; fullName: string; description: string; language: string; url: string; nodes: ArchNode[]
 }
 
 const nodeIcons: Record<ArchNode['type'], any> = {
-  frontend: Code,
-  backend: Server,
-  database: Database,
-  api: Zap,
-  service: Layers,
-  component: FileText,
-  file: FileText,
+  frontend: Code, backend: Server, database: Database, api: Zap,
+  service: Layers, component: FileText, file: FileText,
 }
 
-const nodeColors: Record<ArchNode['type'], { bg: string; border: string; text: string }> = {
-  frontend: { bg: 'bg-pink-50', border: 'border-pink-500', text: 'text-pink-700' },
-  backend: { bg: 'bg-blue-50', border: 'border-blue-500', text: 'text-blue-700' },
-  database: { bg: 'bg-green-50', border: 'border-green-500', text: 'text-green-700' },
-  api: { bg: 'bg-orange-50', border: 'border-orange-500', text: 'text-orange-700' },
-  service: { bg: 'bg-purple-50', border: 'border-purple-500', text: 'text-purple-700' },
-  component: { bg: 'bg-cyan-50', border: 'border-cyan-500', text: 'text-cyan-700' },
-  file: { bg: 'bg-gray-50', border: 'border-gray-400', text: 'text-gray-700' },
+// Sage-tinted node color palette
+const nodeStyles: Record<ArchNode['type'], { bg: string; border: string; iconBg: string; iconColor: string }> = {
+  frontend: { bg: 'var(--fs-sage-50)',  border: 'var(--fs-sage-300)', iconBg: 'var(--fs-sage-100)', iconColor: 'var(--fs-sage-600)' },
+  backend:  { bg: 'var(--fs-cream-50)', border: 'var(--fs-sage-400)', iconBg: 'var(--fs-sage-100)', iconColor: 'var(--fs-sage-700)' },
+  database: { bg: 'var(--fs-cream-100)', border: 'var(--fs-sage-300)', iconBg: 'var(--fs-sage-200)', iconColor: 'var(--fs-sage-700)' },
+  api:      { bg: 'var(--fs-sage-50)',  border: 'var(--fs-sage-400)', iconBg: 'var(--fs-sage-100)', iconColor: 'var(--fs-sage-600)' },
+  service:  { bg: 'var(--fs-cream-50)', border: 'var(--fs-sage-300)', iconBg: 'var(--fs-sage-100)', iconColor: 'var(--fs-sage-600)' },
+  component:{ bg: 'var(--fs-cream-100)', border: 'var(--fs-sage-200)', iconBg: 'var(--fs-cream-200)', iconColor: 'var(--fs-sage-500)' },
+  file:     { bg: 'var(--fs-cream-50)', border: 'var(--fs-border-light)', iconBg: 'var(--fs-cream-200)', iconColor: 'var(--fs-text-muted)' },
 }
 
 export function GitHubArchitectureDiagram({
-  repoOwner,
-  repoName,
-  diagramType = 'architecture',
+  repoOwner, repoName, diagramType = 'architecture',
 }: GitHubArchitectureDiagramProps) {
   const [structure, setStructure] = useState<RepoStructure | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null)
 
   const { streamStatus } = useTamboStreamStatus()
   const isStreaming = !streamStatus.isSuccess && !streamStatus.isError
 
   useEffect(() => {
     if (isStreaming) return
-
     const fetchRepoStructure = async () => {
-      setLoading(true)
-      setError(null)
-
+      setLoading(true); setError(null)
       try {
         const response = await fetch('/api/github/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            owner: repoOwner,
-            repo: repoName,
-            analysisType: diagramType,
-          }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ owner: repoOwner, repo: repoName, analysisType: diagramType }),
         })
-
         if (!response.ok) throw new Error('Failed to analyze repository')
-
         const data = await response.json()
         setStructure(data)
       } catch (err: any) {
         setError(err.message || 'Analysis failed')
-        // Fallback to mock data for demo
         setStructure(generateMockStructure(repoOwner, repoName))
-      } finally {
-        setLoading(false)
-      }
+      } finally { setLoading(false) }
     }
-
     fetchRepoStructure()
   }, [repoOwner, repoName, diagramType, isStreaming])
 
-  // Generate mock structure for demo
-  const generateMockStructure = (owner: string, name: string): RepoStructure => {
-    return {
-      name,
-      fullName: `${owner}/${name}`,
-      description: `Architecture diagram for ${owner}/${name}`,
-      language: 'TypeScript',
-      url: `https://github.com/${owner}/${name}`,
-      nodes: [
-        {
-          id: 'frontend',
-          type: 'frontend',
-          label: 'Frontend (React)',
-          description: 'User interface components',
-          language: 'TypeScript',
-          path: '/src/components',
-          connections: ['api'],
-        },
-        {
-          id: 'api',
-          type: 'api',
-          label: 'REST API',
-          description: 'API endpoints and routing',
-          language: 'TypeScript',
-          path: '/src/api',
-          connections: ['backend', 'database'],
-        },
-        {
-          id: 'backend',
-          type: 'backend',
-          label: 'Backend Services',
-          description: 'Business logic and services',
-          language: 'TypeScript',
-          path: '/src/services',
-          connections: ['database'],
-        },
-        {
-          id: 'database',
-          type: 'database',
-          label: 'PostgreSQL',
-          description: 'Data persistence layer',
-          language: 'SQL',
-          path: '/prisma',
-          connections: [],
-        },
-      ],
-    }
-  }
+  const generateMockStructure = (owner: string, name: string): RepoStructure => ({
+    name, fullName: `${owner}/${name}`,
+    description: `Architecture diagram for ${owner}/${name}`,
+    language: 'TypeScript', url: `https://github.com/${owner}/${name}`,
+    nodes: [
+      { id: 'frontend', type: 'frontend', label: 'Frontend (React)', description: 'User interface components', language: 'TypeScript', path: '/src/components', connections: ['api'] },
+      { id: 'api', type: 'api', label: 'REST API', description: 'API endpoints and routing', language: 'TypeScript', path: '/src/api', connections: ['backend', 'database'] },
+      { id: 'backend', type: 'backend', label: 'Backend Services', description: 'Business logic and services', language: 'TypeScript', path: '/src/services', connections: ['database'] },
+      { id: 'database', type: 'database', label: 'PostgreSQL', description: 'Data persistence layer', language: 'SQL', path: '/prisma', connections: [] },
+    ],
+  })
 
-  /* ---------------- Streaming State ---------------- */
+  /* ── Streaming ── */
   if (isStreaming) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium">Analyzing repository...</p>
+        <div className="text-center fs-animate-in">
+          <div className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4" style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+          <p className="font-medium" style={{ color: 'var(--fs-text-primary)' }}>Analyzing repository...</p>
         </div>
       </div>
     )
   }
 
-  /* ---------------- Loading State ---------------- */
+  /* ── Loading ── */
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <Loader size={32} className="animate-spin text-blue-600 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium">Fetching repository structure...</p>
-          <p className="text-gray-500 text-sm mt-1">{repoOwner}/{repoName}</p>
+        <div className="text-center fs-animate-in">
+          <div className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4" style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+          <p className="font-medium" style={{ color: 'var(--fs-text-primary)' }}>Fetching repository structure...</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>{repoOwner}/{repoName}</p>
         </div>
       </div>
     )
   }
 
-  /* ---------------- Error State ---------------- */
+  /* ── Error ── */
   if (error || !structure) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center bg-red-50 border-2 border-red-200 rounded-xl p-8 max-w-md">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-3">
-            <span className="text-red-600 text-xl">⚠️</span>
+        <div className="text-center rounded-2xl p-8 max-w-md fs-animate-in" style={{ background: '#FEF2F2', border: '2px solid #FECACA' }}>
+          <div className="mx-auto mb-3 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#FEE2E2' }}>
+            <span className="text-lg">⚠️</span>
           </div>
-          <p className="text-red-700 font-medium">Failed to analyze repository</p>
-          <p className="text-red-600 text-sm mt-1">{error || 'Unknown error'}</p>
+          <p className="font-medium" style={{ color: '#B91C1C' }}>Failed to analyze repository</p>
+          <p className="text-sm mt-1" style={{ color: '#DC2626' }}>{error || 'Unknown error'}</p>
         </div>
       </div>
     )
   }
 
-  /* ---------------- Diagram Display ---------------- */
+  /* ── Diagram ── */
   return (
-    <div className="h-full flex flex-col p-8 bg-linear-to-br from-gray-50 to-white">
+    <div className="h-full flex flex-col p-6 md:p-8" style={{ background: 'var(--fs-cream-100)' }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 fs-animate-in">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <GitBranch size={24} />
+            <h2 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+              <GitBranch size={22} strokeWidth={1.8} style={{ color: 'var(--fs-sage-600)' }} />
               {structure.fullName}
             </h2>
-            <p className="text-gray-600 mt-1">{structure.description}</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>{structure.description}</p>
           </div>
-          <a
-            href={structure.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            <ExternalLink size={16} />
-            View on GitHub
+          <a href={structure.url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all"
+            style={{ background: 'var(--fs-sage-600)', color: 'white', boxShadow: 'var(--fs-shadow-sm)', transitionDuration: 'var(--fs-duration-normal)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)' }}>
+            <ExternalLink size={15} /> View on GitHub
           </a>
         </div>
       </div>
 
-      {/* Architecture Diagram */}
+      {/* Architecture Nodes */}
       <div className="flex-1 relative">
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center overflow-auto fs-scrollbar">
           <div className="relative w-full max-w-4xl">
-            {/* Nodes */}
-            <div className="space-y-8">
+            <div className="space-y-8 fs-stagger">
               {structure.nodes.map((node, index) => {
                 const Icon = nodeIcons[node.type]
-                const colors = nodeColors[node.type]
+                const style = nodeStyles[node.type]
+                const isHovered = hoveredNode === node.id
 
                 return (
-                  <div
-                    key={node.id}
-                    className={`
-                      relative
-                      ${index % 2 === 0 ? 'ml-0' : 'ml-auto'}
-                      ${index % 2 === 0 ? 'mr-auto' : 'mr-0'}
-                      w-96
-                    `}
-                  >
+                  <div key={node.id}
+                    className={`relative ${index % 2 === 0 ? 'ml-0 mr-auto' : 'ml-auto mr-0'} w-full max-w-[26rem] fs-animate-in`}
+                    style={{ animationDelay: `${index * 80}ms` }}>
                     <div
-                      className={`
-                        ${colors.bg} ${colors.border} border-2 rounded-xl p-6
-                        shadow-lg hover:shadow-xl transition-all
-                        transform hover:-translate-y-1
-                      `}
-                    >
+                      onMouseEnter={() => setHoveredNode(node.id)} onMouseLeave={() => setHoveredNode(null)}
+                      className="rounded-2xl p-6 transition-all"
+                      style={{
+                        background: style.bg,
+                        border: `2px solid ${isHovered ? 'var(--fs-sage-500)' : style.border}`,
+                        boxShadow: isHovered ? 'var(--fs-shadow-lg)' : 'var(--fs-shadow-sm)',
+                        transform: isHovered ? 'translateY(-3px)' : 'translateY(0)',
+                        transitionDuration: 'var(--fs-duration-normal)', transitionTimingFunction: 'var(--fs-ease-out)',
+                      }}>
                       <div className="flex items-start gap-3">
-                        <div className={`${colors.border} border-2 rounded-lg p-2 ${colors.bg}`}>
-                          <Icon size={24} className={colors.text} />
+                        <div className="p-2.5 rounded-xl" style={{ background: style.iconBg }}>
+                          <Icon size={22} strokeWidth={1.8} style={{ color: style.iconColor }} />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg text-gray-900">{node.label}</h3>
+                          <h3 className="font-bold text-base" style={{ color: 'var(--fs-text-primary)' }}>{node.label}</h3>
                           {node.description && (
-                            <p className="text-sm text-gray-600 mt-1">{node.description}</p>
+                            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-secondary)' }}>{node.description}</p>
                           )}
-                          {node.language && (
-                            <div className="inline-block mt-2 px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
-                              {node.language}
-                            </div>
-                          )}
-                          {node.path && (
-                            <div className="text-xs text-gray-500 mt-2 font-mono">{node.path}</div>
-                          )}
+                          <div className="flex items-center gap-2 mt-2.5">
+                            {node.language && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-lg"
+                                style={{ background: 'var(--fs-cream-200)', color: 'var(--fs-text-secondary)' }}>
+                                {node.language}
+                              </span>
+                            )}
+                            {node.path && (
+                              <span className="text-xs font-mono" style={{ color: 'var(--fs-text-muted)' }}>{node.path}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Connection indicators */}
+                      {/* Connections */}
                       {node.connections.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                          <p className="text-xs text-gray-500 mb-2">Connects to:</p>
-                          <div className="flex flex-wrap gap-2">
+                        <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--fs-border-light)' }}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--fs-text-muted)' }}>Connects to</p>
+                          <div className="flex flex-wrap gap-1.5">
                             {node.connections.map((connId) => {
                               const connNode = structure.nodes.find((n) => n.id === connId)
                               return connNode ? (
-                                <span
-                                  key={connId}
-                                  className="text-xs px-2 py-1 bg-white border border-gray-300 rounded"
-                                >
+                                <span key={connId} className="text-xs font-medium px-2.5 py-1 rounded-lg"
+                                  style={{ background: 'var(--fs-cream-50)', border: '1px solid var(--fs-border-light)', color: 'var(--fs-text-secondary)' }}>
                                   {connNode.label}
                                 </span>
                               ) : null
@@ -292,10 +219,10 @@ export function GitHubArchitectureDiagram({
                       )}
                     </div>
 
-                    {/* Connection arrows */}
+                    {/* Arrow */}
                     {node.connections.length > 0 && index < structure.nodes.length - 1 && (
-                      <div className="absolute left-1/2 -translate-x-1/2 -bottom-4 text-gray-400">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <div className="absolute left-1/2 -translate-x-1/2 -bottom-4" style={{ color: 'var(--fs-sage-300)' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                           <path d="M12 5V19M12 19L5 12M12 19L19 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </div>
@@ -308,10 +235,11 @@ export function GitHubArchitectureDiagram({
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-900">
-          <span className="font-semibold">💡 Tip:</span> Ask Claude to modify this diagram: "Add authentication layer" or "Show database relationships"
+      {/* Tip */}
+      <div className="mt-8 rounded-2xl p-4 flex items-start gap-3 fs-animate-in" style={{ background: 'var(--fs-sage-50)', border: '1px solid var(--fs-sage-200)' }}>
+        <Sparkles size={18} style={{ color: 'var(--fs-sage-600)' }} className="shrink-0 mt-0.5" />
+        <p className="text-sm" style={{ color: 'var(--fs-sage-800)' }}>
+          <span className="font-semibold">Tip:</span> Ask Claude to modify this diagram: &ldquo;Add authentication layer&rdquo; or &ldquo;Show database relationships&rdquo;
         </p>
       </div>
     </div>
@@ -320,8 +248,7 @@ export function GitHubArchitectureDiagram({
 
 export const gitHubArchitectureDiagramComponent = {
   name: 'GitHubArchitectureDiagram',
-  description:
-    'Visualizes GitHub repository architecture with interactive node-based diagrams showing frontend, backend, database, API, and service layers with their connections.',
+  description: 'Visualizes GitHub repository architecture with interactive node-based diagrams showing frontend, backend, database, API, and service layers with their connections.',
   component: GitHubArchitectureDiagram,
   propsSchema: GitHubArchitectureDiagramPropsSchema,
 }

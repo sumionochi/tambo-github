@@ -1,9 +1,10 @@
 // components/interactable/Notes.tsx
+// REDESIGNED: Cream/Sage palette, polished note cards, soft transitions
 'use client'
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { FileText, Trash2, Link as LinkIcon, RefreshCw, ExternalLink, Edit2, Check, X } from 'lucide-react'
+import { FileText, Trash2, Link as LinkIcon, RefreshCw, ExternalLink, Edit2, Check, X, StickyNote } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SearchHistoryDialog } from '@/components/dialog/SearchHistoryDialog'
 import { ConfirmDialog } from '@/components/dialog/ConfirmDialog'
@@ -23,55 +24,28 @@ export const NotesPropsSchema = z.object({
 type NotesProps = z.infer<typeof NotesPropsSchema>
 
 function Notes({ notes: initialNotes }: NotesProps) {
-  const [notes, setNotes] = useTamboComponentState(
-    "notes",
-    initialNotes || [],
-    initialNotes || []
-  )
-
+  const [notes, setNotes] = useTamboComponentState("notes", initialNotes || [], initialNotes || [])
   const [expandedNote, setExpandedNote] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const hasLoadedRef = useRef(false)
   const isLoadingRef = useRef(false)
-
-  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedSearchQuery, setSelectedSearchQuery] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; noteId: string; notePreview: string } | null>(null)
+  const [editingNote, setEditingNote] = useState<{ id: string; content: string } | null>(null)
 
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean
-    noteId: string
-    notePreview: string
-  } | null>(null)
-
-  const [editingNote, setEditingNote] = useState<{
-    id: string
-    content: string
-  } | null>(null)
-
-  // Load notes from database on mount
   useEffect(() => {
-    if (!hasLoadedRef.current && !isLoadingRef.current) {
-      loadNotes()
-    }
+    if (!hasLoadedRef.current && !isLoadingRef.current) loadNotes()
   }, [])
 
   const loadNotes = async () => {
-    if (isLoadingRef.current) {
-      console.log('⏭️ Skipping duplicate notes load')
-      return
-    }
-
+    if (isLoadingRef.current) return
     try {
       isLoadingRef.current = true
       setLoading(true)
-      
-      console.log('📝 Fetching notes...')
       const response = await fetch('/api/notes')
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Loaded', data.notes.length, 'notes')
         setNotes(data.notes || [])
         hasLoadedRef.current = true
       }
@@ -83,88 +57,78 @@ function Notes({ notes: initialNotes }: NotesProps) {
     }
   }
 
-  const handleRefresh = () => {
-    hasLoadedRef.current = false
-    loadNotes()
-  }
-
-  const handleOpenSearchDialog = (searchQuery: string) => {
-    setSelectedSearchQuery(searchQuery)
-    setDialogOpen(true)
-  }
-
+  const handleRefresh = () => { hasLoadedRef.current = false; loadNotes() }
+  const handleOpenSearchDialog = (q: string) => { setSelectedSearchQuery(q); setDialogOpen(true) }
   const safeNotes = notes ?? []
 
   const handleDeleteNote = async (noteId: string) => {
     try {
-      console.log('🗑️ Deleting note:', noteId)
-      
-      const response = await fetch(`/api/notes/${noteId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        setNotes(safeNotes.filter(n => n.id !== noteId))
-        console.log('✅ Note deleted')
-      } else {
-        console.error('❌ Failed to delete note')
-      }
-    } catch (error) {
-      console.error('Delete note error:', error)
-    }
+      const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
+      if (response.ok) setNotes(safeNotes.filter(n => n.id !== noteId))
+    } catch (error) { console.error('Delete note error:', error) }
   }
 
   const handleUpdateNote = async (noteId: string, newContent: string) => {
     try {
-      console.log('✏️ Updating note:', noteId)
-      
       const response = await fetch(`/api/notes/${noteId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newContent }),
       })
-
       if (response.ok) {
-        setNotes(safeNotes.map(n =>
-          n.id === noteId ? { ...n, content: newContent } : n
-        ))
+        setNotes(safeNotes.map(n => n.id === noteId ? { ...n, content: newContent } : n))
         setEditingNote(null)
-        console.log('✅ Note updated')
-      } else {
-        console.error('❌ Failed to update note')
       }
-    } catch (error) {
-      console.error('Update note error:', error)
-    }
+    } catch (error) { console.error('Update note error:', error) }
   }
 
-  const sortedNotes = [...safeNotes].sort((a, b) => 
+  const sortedNotes = [...safeNotes].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )
 
+  // ─── Loading ───
   if (loading && safeNotes.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-600">Loading notes...</p>
+        <div className="text-center fs-animate-in">
+          <div
+            className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4"
+            style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }}
+          />
+          <p style={{ color: 'var(--fs-text-muted)' }}>Loading notes...</p>
         </div>
       </div>
     )
   }
 
+  // ─── Empty ───
   if (safeNotes.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center text-gray-500">
-          <FileText size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No Notes Yet</p>
-          <p className="text-sm mt-2">Ask AI to save information as notes</p>
+        <div className="text-center fs-animate-in" style={{ maxWidth: 320 }}>
+          <div
+            className="mx-auto mb-5 w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--fs-sage-50)' }}
+          >
+            <StickyNote size={28} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+          </div>
+          <p className="text-lg font-semibold" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+            No Notes Yet
+          </p>
+          <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--fs-text-muted)' }}>
+            Ask AI to save information as notes
+          </p>
           <button
             onClick={handleRefresh}
-            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+            className="mt-5 px-5 py-2.5 text-sm font-medium rounded-xl inline-flex items-center gap-2 transition-all"
+            style={{
+              background: 'var(--fs-sage-600)', color: 'var(--fs-text-on-green)',
+              boxShadow: 'var(--fs-shadow-sm)', transitionDuration: 'var(--fs-duration-normal)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)'; e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)' }}
           >
-            <RefreshCw size={16} />
+            <RefreshCw size={15} />
             Refresh
           </button>
         </div>
@@ -172,32 +136,28 @@ function Notes({ notes: initialNotes }: NotesProps) {
     )
   }
 
+  // ─── Main ───
   return (
     <>
-      <div className="p-6 space-y-4 overflow-y-auto h-full">
-        {/* Header with EditWithTamboButton */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-6 md:p-8 overflow-y-auto h-full fs-scrollbar">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 fs-animate-in">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Notes</h2>
-            <p className="text-sm text-gray-500 mt-1">{safeNotes.length} notes</p>
+            <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+              My Notes
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>
+              {safeNotes.length} note{safeNotes.length !== 1 ? 's' : ''}
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <EditWithTamboButton 
-              tooltip="Edit notes with AI"
-              description="Summarize, rewrite, organize, or manage your notes using natural language"
-            />
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-              title="Refresh notes"
-            >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
+            <EditWithTamboButton tooltip="Edit notes with AI" description="Summarize, rewrite, organize, or manage your notes using natural language" />
+            <RefreshButton loading={loading} onClick={handleRefresh} />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Notes Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 fs-stagger">
           {sortedNotes.map((note) => {
             const isExpanded = expandedNote === note.id
             const isEditing = editingNote?.id === note.id
@@ -207,79 +167,100 @@ function Notes({ notes: initialNotes }: NotesProps) {
             return (
               <div
                 key={note.id}
-                className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                className="rounded-2xl p-5 transition-all fs-animate-in group"
+                style={{
+                  background: 'var(--fs-cream-50)',
+                  border: '1px solid var(--fs-border-light)',
+                  boxShadow: 'var(--fs-shadow-sm)',
+                  transitionDuration: 'var(--fs-duration-normal)',
+                  transitionTimingFunction: 'var(--fs-ease-out)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)'; e.currentTarget.style.borderColor = 'var(--fs-sage-200)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)'; e.currentTarget.style.borderColor = 'var(--fs-border-light)' }}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <FileText size={16} />
-                    <span>
-                      {new Date(note.createdAt).toLocaleDateString()}
-                    </span>
+                {/* Meta Row */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--fs-text-muted)' }}>
+                    <FileText size={13} strokeWidth={1.8} />
+                    <span>{new Date(note.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ transitionDuration: 'var(--fs-duration-normal)' }}>
                     {!isEditing && (
                       <button
                         onClick={() => setEditingNote({ id: note.id, content: note.content })}
-                        className="text-gray-400 hover:text-blue-600 transition-colors"
+                        className="p-1.5 rounded-lg transition-all"
+                        style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fs-sage-600)'; e.currentTarget.style.background = 'var(--fs-sage-50)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-text-muted)'; e.currentTarget.style.background = 'transparent' }}
                         title="Edit note"
                       >
-                        <Edit2 size={16} />
+                        <Edit2 size={13} />
                       </button>
                     )}
                     <button
                       onClick={() => setConfirmDialog({
-                        isOpen: true,
-                        noteId: note.id,
+                        isOpen: true, noteId: note.id,
                         notePreview: note.content.slice(0, 50) + (note.content.length > 50 ? '...' : ''),
                       })}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      className="p-1.5 rounded-lg transition-all"
+                      style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = '#FEF2F2' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-text-muted)'; e.currentTarget.style.background = 'transparent' }}
                       title="Delete note"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
 
-                {isEditing ? (
-                  <div className="space-y-2">
+                {/* Content / Editor */}
+                {isEditing && editingNote ? (
+                  <div className="space-y-3">
                     <textarea
                       value={editingNote.content}
                       onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
-                      className="w-full text-gray-700 text-sm border-2 border-blue-500 rounded p-2 outline-none min-h-[120px] resize-y"
+                      className="w-full text-sm rounded-xl p-3 outline-none resize-y min-h-[120px]"
+                      style={{
+                        color: 'var(--fs-text-primary)',
+                        background: 'var(--fs-cream-100)',
+                        border: '2px solid var(--fs-sage-400)',
+                      }}
                       autoFocus
                     />
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          if (editingNote.content.trim()) {
-                            handleUpdateNote(note.id, editingNote.content.trim())
-                          }
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1 bg-blue-600 text-white text-sm py-1.5 rounded hover:bg-blue-700"
+                        onClick={() => { if (editingNote.content.trim()) handleUpdateNote(note.id, editingNote.content.trim()) }}
+                        className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-2 rounded-xl transition-all"
+                        style={{ background: 'var(--fs-sage-600)', color: 'white', transitionDuration: 'var(--fs-duration-fast)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)' }}
                       >
-                        <Check size={14} />
-                        Save
+                        <Check size={14} /> Save
                       </button>
                       <button
                         onClick={() => setEditingNote(null)}
-                        className="flex-1 flex items-center justify-center gap-1 bg-gray-200 text-gray-700 text-sm py-1.5 rounded hover:bg-gray-300"
+                        className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-2 rounded-xl transition-all"
+                        style={{ background: 'var(--fs-cream-200)', color: 'var(--fs-text-secondary)', transitionDuration: 'var(--fs-duration-fast)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-300)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)' }}
                       >
-                        <X size={14} />
-                        Cancel
+                        <X size={14} /> Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap mb-3">
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed mb-3" style={{ color: 'var(--fs-text-secondary)' }}>
                       {isExpanded ? note.content : preview}
                       {needsExpansion && !isExpanded && '...'}
                     </p>
-
                     {needsExpansion && (
                       <button
                         onClick={() => setExpandedNote(isExpanded ? null : note.id)}
-                        className="text-sm text-blue-600 hover:text-blue-700"
+                        className="text-sm font-medium transition-all"
+                        style={{ color: 'var(--fs-sage-600)', transitionDuration: 'var(--fs-duration-fast)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fs-sage-700)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-sage-600)' }}
                       >
                         {isExpanded ? 'Show less' : 'Read more'}
                       </button>
@@ -287,24 +268,30 @@ function Notes({ notes: initialNotes }: NotesProps) {
                   </>
                 )}
 
-                {note.sourceSearch && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <button
-                      onClick={() => handleOpenSearchDialog(note.sourceSearch!)}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline group"
-                    >
-                      <LinkIcon size={12} />
-                      <span>From search: "{note.sourceSearch}"</span>
-                      <ExternalLink size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  </div>
-                )}
-
-                {note.linkedCollection && (
-                  <div className="mt-2">
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                      📚 Linked to collection
-                    </span>
+                {/* Source / Linked badges */}
+                {(note.sourceSearch || note.linkedCollection) && (
+                  <div className="mt-4 pt-3 space-y-2" style={{ borderTop: '1px solid var(--fs-border-light)' }}>
+                    {note.sourceSearch && (
+                      <button
+                        onClick={() => handleOpenSearchDialog(note.sourceSearch!)}
+                        className="flex items-center gap-1.5 text-xs font-medium group/link transition-all"
+                        style={{ color: 'var(--fs-sage-600)', transitionDuration: 'var(--fs-duration-fast)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--fs-sage-700)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--fs-sage-600)' }}
+                      >
+                        <LinkIcon size={11} />
+                        <span>From: &ldquo;{note.sourceSearch}&rdquo;</span>
+                        <ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                      </button>
+                    )}
+                    {note.linkedCollection && (
+                      <span
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg"
+                        style={{ background: 'var(--fs-sage-50)', color: 'var(--fs-sage-700)' }}
+                      >
+                        📚 Linked to collection
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -313,14 +300,7 @@ function Notes({ notes: initialNotes }: NotesProps) {
         </div>
       </div>
 
-      {/* Search History Dialog */}
-      <SearchHistoryDialog
-        isOpen={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        searchQuery={selectedSearchQuery}
-      />
-
-      {/* Confirm Delete Dialog */}
+      <SearchHistoryDialog isOpen={dialogOpen} onClose={() => setDialogOpen(false)} searchQuery={selectedSearchQuery} />
       {confirmDialog && (
         <ConfirmDialog
           isOpen={confirmDialog.isOpen}
@@ -333,6 +313,22 @@ function Notes({ notes: initialNotes }: NotesProps) {
         />
       )}
     </>
+  )
+}
+
+function RefreshButton({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="p-2.5 rounded-xl transition-all disabled:opacity-50"
+      style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-normal)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)'; e.currentTarget.style.color = 'var(--fs-text-primary)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--fs-text-muted)' }}
+      title="Refresh"
+    >
+      <RefreshCw size={18} className={loading ? 'animate-spin' : ''} strokeWidth={1.8} />
+    </button>
   )
 }
 

@@ -1,4 +1,5 @@
 // components/interactable/Calendar.tsx
+// REDESIGNED: Cream/Sage palette, polished event cards, soft transitions
 'use client'
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
@@ -31,174 +32,113 @@ interface EditingEvent {
 }
 
 function Calendar({ events: initialEvents }: CalendarProps) {
-  const [events, setEvents] = useTamboComponentState(
-    "events",
-    initialEvents || [],
-    initialEvents || []
-  )
-
+  const [events, setEvents] = useTamboComponentState("events", initialEvents || [], initialEvents || [])
   const [loading, setLoading] = useState(false)
   const hasLoadedRef = useRef(false)
   const isLoadingRef = useRef(false)
-
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean
-    eventId: string
-    eventTitle: string
-  } | null>(null)
-
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; eventId: string; eventTitle: string } | null>(null)
   const [editingEvent, setEditingEvent] = useState<EditingEvent | null>(null)
 
-  // Load events from database on mount
   useEffect(() => {
-    if (!hasLoadedRef.current && !isLoadingRef.current) {
-      loadEvents()
-    }
+    if (!hasLoadedRef.current && !isLoadingRef.current) loadEvents()
   }, [])
 
   const loadEvents = async () => {
-    if (isLoadingRef.current) {
-      console.log('⏭️ Skipping duplicate calendar load')
-      return
-    }
-
+    if (isLoadingRef.current) return
     try {
       isLoadingRef.current = true
       setLoading(true)
-      
-      console.log('📅 Fetching calendar events...')
       const response = await fetch('/api/calendar')
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('✅ Loaded', data.events.length, 'events')
         setEvents(data.events || [])
         hasLoadedRef.current = true
       }
-    } catch (error) {
-      console.error('Failed to load events:', error)
-    } finally {
-      setLoading(false)
-      isLoadingRef.current = false
-    }
+    } catch (error) { console.error('Failed to load events:', error) }
+    finally { setLoading(false); isLoadingRef.current = false }
   }
 
-  const handleRefresh = () => {
-    hasLoadedRef.current = false
-    loadEvents()
-  }
-
+  const handleRefresh = () => { hasLoadedRef.current = false; loadEvents() }
   const safeEvents = events ?? []
 
   const handleDeleteEvent = async (eventId: string) => {
     try {
-      console.log('🗑️ Deleting event:', eventId)
-      
-      const response = await fetch(`/api/calendar/${eventId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        setEvents(safeEvents.filter(e => e.id !== eventId))
-        console.log('✅ Event deleted')
-      } else {
-        console.error('❌ Failed to delete event')
-      }
-    } catch (error) {
-      console.error('Delete event error:', error)
-    }
+      const response = await fetch(`/api/calendar/${eventId}`, { method: 'DELETE' })
+      if (response.ok) setEvents(safeEvents.filter(e => e.id !== eventId))
+    } catch (error) { console.error('Delete event error:', error) }
   }
 
   const handleToggleComplete = async (eventId: string) => {
     const event = safeEvents.find(e => e.id === eventId)
     if (!event) return
-
     try {
-      console.log('✓ Toggling complete status:', eventId)
-      
       const response = await fetch(`/api/calendar/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !event.completed }),
       })
-
-      if (response.ok) {
-        setEvents(safeEvents.map(e => 
-          e.id === eventId ? { ...e, completed: !e.completed } : e
-        ))
-        console.log('✅ Event status updated')
-      } else {
-        console.error('❌ Failed to update event')
-      }
-    } catch (error) {
-      console.error('Toggle complete error:', error)
-    }
+      if (response.ok) setEvents(safeEvents.map(e => e.id === eventId ? { ...e, completed: !e.completed } : e))
+    } catch (error) { console.error('Toggle complete error:', error) }
   }
 
   const handleUpdateEvent = async (eventId: string, updates: Partial<EditingEvent>) => {
     try {
-      console.log('✏️ Updating event:', eventId)
-      
       const response = await fetch(`/api/calendar/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: updates.title,
-          datetime: updates.datetime,
-          note: updates.note,
-        }),
+        body: JSON.stringify({ title: updates.title, datetime: updates.datetime, note: updates.note }),
       })
-
       if (response.ok) {
-        setEvents(safeEvents.map(e =>
-          e.id === eventId ? { 
-            ...e, 
-            title: updates.title || e.title,
-            datetime: updates.datetime || e.datetime,
-            note: updates.note !== undefined ? updates.note : e.note,
-          } : e
-        ))
+        setEvents(safeEvents.map(e => e.id === eventId ? {
+          ...e,
+          title: updates.title || e.title,
+          datetime: updates.datetime || e.datetime,
+          note: updates.note !== undefined ? updates.note : e.note,
+        } : e))
         setEditingEvent(null)
-        console.log('✅ Event updated')
-      } else {
-        console.error('❌ Failed to update event')
       }
-    } catch (error) {
-      console.error('Update event error:', error)
-    }
+    } catch (error) { console.error('Update event error:', error) }
   }
 
-  const sortedEvents = [...safeEvents].sort((a, b) => 
-    new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
-  )
-
+  const sortedEvents = [...safeEvents].sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
   const upcomingEvents = sortedEvents.filter(e => !e.completed)
   const completedEvents = sortedEvents.filter(e => e.completed)
 
+  // ─── Loading ───
   if (loading && safeEvents.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-600">Loading events...</p>
+        <div className="text-center fs-animate-in">
+          <div className="inline-block w-10 h-10 rounded-full border-[3px] border-t-transparent animate-spin mb-4"
+            style={{ borderColor: 'var(--fs-sage-200)', borderTopColor: 'transparent' }} />
+          <p style={{ color: 'var(--fs-text-muted)' }}>Loading events...</p>
         </div>
       </div>
     )
   }
 
+  // ─── Empty ───
   if (safeEvents.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center text-gray-500">
-          <CalendarIcon size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">No Events Scheduled</p>
-          <p className="text-sm mt-2">Ask AI to schedule reminders or events</p>
-          <button
-            onClick={handleRefresh}
-            className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
+        <div className="text-center fs-animate-in" style={{ maxWidth: 320 }}>
+          <div className="mx-auto mb-5 w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--fs-sage-50)' }}>
+            <CalendarIcon size={28} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+          </div>
+          <p className="text-lg font-semibold" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+            No Events Scheduled
+          </p>
+          <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--fs-text-muted)' }}>
+            Ask AI to schedule reminders or events
+          </p>
+          <button onClick={handleRefresh}
+            className="mt-5 px-5 py-2.5 text-sm font-medium rounded-xl inline-flex items-center gap-2 transition-all"
+            style={{ background: 'var(--fs-sage-600)', color: 'var(--fs-text-on-green)', boxShadow: 'var(--fs-shadow-sm)', transitionDuration: 'var(--fs-duration-normal)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)' }}
           >
-            <RefreshCw size={16} />
-            Refresh
+            <RefreshCw size={15} /> Refresh
           </button>
         </div>
       </div>
@@ -207,275 +147,237 @@ function Calendar({ events: initialEvents }: CalendarProps) {
 
   return (
     <>
-      <div className="p-6 space-y-6 overflow-y-auto h-full">
-        {/* Header with EditWithTamboButton */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-6 md:p-8 overflow-y-auto h-full fs-scrollbar">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 fs-animate-in">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Calendar</h2>
-            <p className="text-sm text-gray-500 mt-1">{upcomingEvents.length} upcoming</p>
+            <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+              My Calendar
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>
+              {upcomingEvents.length} upcoming · {completedEvents.length} completed
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <EditWithTamboButton 
-              tooltip="Edit calendar with AI"
-              description="Reschedule, modify, or manage your events and reminders using natural language"
-            />
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-              title="Refresh calendar"
-            >
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-            </button>
+            <EditWithTamboButton tooltip="Edit calendar with AI" description="Reschedule, modify, or manage your events and reminders using natural language" />
+            <RefreshBtn loading={loading} onClick={handleRefresh} />
           </div>
         </div>
 
-        {/* Upcoming Events */}
+        {/* Upcoming */}
         {upcomingEvents.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Upcoming</h3>
-            <div className="space-y-3">
+          <section className="mb-8 fs-animate-in">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4"
+              style={{ color: 'var(--fs-text-muted)', letterSpacing: '0.08em' }}>
+              Upcoming
+            </h3>
+            <div className="space-y-3 fs-stagger">
               {upcomingEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  editingEvent={editingEvent}
-                  onEditChange={setEditingEvent}
-                  onCancelEdit={() => setEditingEvent(null)}
+                <EventCard key={event.id} event={event} editingEvent={editingEvent}
+                  onEditChange={setEditingEvent} onCancelEdit={() => setEditingEvent(null)}
                   onSaveEdit={handleUpdateEvent}
                   onDelete={(id, title) => setConfirmDialog({ isOpen: true, eventId: id, eventTitle: title })}
-                  onToggleComplete={handleToggleComplete}
-                />
+                  onToggleComplete={handleToggleComplete} />
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Completed Events */}
+        {/* Completed */}
         {completedEvents.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Completed</h3>
-            <div className="space-y-3">
+          <section className="fs-animate-in" style={{ animationDelay: '100ms' }}>
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4"
+              style={{ color: 'var(--fs-text-muted)', letterSpacing: '0.08em' }}>
+              Completed
+            </h3>
+            <div className="space-y-3 fs-stagger">
               {completedEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  editingEvent={editingEvent}
-                  onEditChange={setEditingEvent}
-                  onCancelEdit={() => setEditingEvent(null)}
+                <EventCard key={event.id} event={event} editingEvent={editingEvent}
+                  onEditChange={setEditingEvent} onCancelEdit={() => setEditingEvent(null)}
                   onSaveEdit={handleUpdateEvent}
                   onDelete={(id, title) => setConfirmDialog({ isOpen: true, eventId: id, eventTitle: title })}
-                  onToggleComplete={handleToggleComplete}
-                />
+                  onToggleComplete={handleToggleComplete} />
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
 
-      {/* Confirm Delete Dialog */}
       {confirmDialog && (
-        <ConfirmDialog
-          isOpen={confirmDialog.isOpen}
-          onClose={() => setConfirmDialog(null)}
-          onConfirm={() => handleDeleteEvent(confirmDialog.eventId)}
-          title="Delete Event"
+        <ConfirmDialog isOpen={confirmDialog.isOpen} onClose={() => setConfirmDialog(null)}
+          onConfirm={() => handleDeleteEvent(confirmDialog.eventId)} title="Delete Event"
           message={`Are you sure you want to delete "${confirmDialog.eventTitle}"? This action cannot be undone.`}
-          confirmText="Delete"
-          confirmStyle="danger"
-        />
+          confirmText="Delete" confirmStyle="danger" />
       )}
     </>
   )
 }
 
-function EventCard({ 
-  event, 
-  editingEvent,
-  onEditChange,
-  onCancelEdit,
-  onSaveEdit,
-  onDelete, 
-  onToggleComplete 
-}: { 
-  event: any
-  editingEvent: EditingEvent | null
-  onEditChange: (event: EditingEvent | null) => void
-  onCancelEdit: () => void
-  onSaveEdit: (id: string, updates: Partial<EditingEvent>) => void
-  onDelete: (id: string, title: string) => void
-  onToggleComplete: (id: string) => void
+// ─── Event Card ───
+function EventCard({ event, editingEvent, onEditChange, onCancelEdit, onSaveEdit, onDelete, onToggleComplete }: {
+  event: any; editingEvent: EditingEvent | null;
+  onEditChange: (e: EditingEvent | null) => void; onCancelEdit: () => void;
+  onSaveEdit: (id: string, updates: Partial<EditingEvent>) => void;
+  onDelete: (id: string, title: string) => void; onToggleComplete: (id: string) => void;
 }) {
   const eventDate = new Date(event.datetime)
   const isToday = eventDate.toDateString() === new Date().toDateString()
   const isEditing = editingEvent?.id === event.id
 
-  // Format datetime for input field (YYYY-MM-DDTHH:mm)
   const formatDatetimeForInput = (isoString: string) => {
-    const date = new Date(isoString)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    return `${year}-${month}-${day}T${hours}:${minutes}`
+    const d = new Date(isoString)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
 
-  const handleStartEdit = () => {
-    onEditChange({
-      id: event.id,
-      title: event.title,
-      datetime: event.datetime,
-      note: event.note || '',
-    })
-  }
+  // Choose card accent
+  let borderColor = 'var(--fs-border-light)'
+  let accentBg = 'var(--fs-cream-50)'
+  if (event.completed) { borderColor = 'var(--fs-sage-200)'; accentBg = 'var(--fs-sage-50)' }
+  else if (isToday) { borderColor = 'var(--fs-sage-400)'; accentBg = 'var(--fs-sage-50)' }
 
   return (
-    <div 
-      className={`
-        bg-white rounded-lg border p-4 transition-all
-        ${event.completed ? 'border-green-200 bg-green-50' : 'border-gray-200'}
-        ${isToday && !event.completed ? 'border-blue-300 bg-blue-50' : ''}
-      `}
+    <div
+      className="rounded-2xl p-5 transition-all fs-animate-in group"
+      style={{
+        background: accentBg,
+        border: `1px solid ${borderColor}`,
+        boxShadow: 'var(--fs-shadow-sm)',
+        transitionDuration: 'var(--fs-duration-normal)',
+        transitionTimingFunction: 'var(--fs-ease-out)',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-md)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--fs-shadow-sm)' }}
     >
       {isEditing && editingEvent ? (
-        // Edit Mode
+        /* ── Edit Mode ── */
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              value={editingEvent.title}
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fs-text-muted)' }}>Title</label>
+            <input type="text" value={editingEvent.title}
               onChange={(e) => onEditChange({ ...editingEvent, title: e.target.value })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500"
-            />
+              className="w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-all"
+              style={{ background: 'var(--fs-cream-100)', border: '2px solid var(--fs-sage-400)', color: 'var(--fs-text-primary)' }} />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              value={formatDatetimeForInput(editingEvent.datetime)}
-              onChange={(e) => {
-                const newDatetime = new Date(e.target.value).toISOString()
-                onEditChange({ ...editingEvent, datetime: newDatetime })
-              }}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500"
-            />
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fs-text-muted)' }}>Date & Time</label>
+            <input type="datetime-local" value={formatDatetimeForInput(editingEvent.datetime)}
+              onChange={(e) => onEditChange({ ...editingEvent, datetime: new Date(e.target.value).toISOString() })}
+              className="w-full rounded-xl px-3 py-2.5 text-sm outline-none transition-all"
+              style={{ background: 'var(--fs-cream-100)', border: '2px solid var(--fs-sage-400)', color: 'var(--fs-text-primary)' }} />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Note (optional)
-            </label>
-            <textarea
-              value={editingEvent.note}
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fs-text-muted)' }}>Note</label>
+            <textarea value={editingEvent.note}
               onChange={(e) => onEditChange({ ...editingEvent, note: e.target.value })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500 resize-y min-h-[60px]"
-              placeholder="Add a note..."
-            />
+              className="w-full rounded-xl px-3 py-2.5 text-sm outline-none resize-y min-h-[60px] transition-all"
+              style={{ background: 'var(--fs-cream-100)', border: '2px solid var(--fs-sage-400)', color: 'var(--fs-text-primary)' }}
+              placeholder="Add a note..." />
           </div>
-
-          <div className="flex items-center gap-2 pt-2">
-            <button
-              onClick={() => {
-                if (editingEvent.title.trim()) {
-                  onSaveEdit(event.id, {
-                    title: editingEvent.title.trim(),
-                    datetime: editingEvent.datetime,
-                    note: editingEvent.note,
-                  })
-                }
-              }}
-              className="flex-1 flex items-center justify-center gap-1 bg-blue-600 text-white text-sm py-2 rounded hover:bg-blue-700"
-            >
-              <Check size={14} />
-              Save Changes
+          <div className="flex items-center gap-2 pt-1">
+            <button onClick={() => { if (editingEvent.title.trim()) onSaveEdit(event.id, { title: editingEvent.title.trim(), datetime: editingEvent.datetime, note: editingEvent.note }) }}
+              className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-2.5 rounded-xl transition-all"
+              style={{ background: 'var(--fs-sage-600)', color: 'white', transitionDuration: 'var(--fs-duration-fast)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)' }}>
+              <Check size={14} /> Save
             </button>
-            <button
-              onClick={onCancelEdit}
-              className="flex-1 flex items-center justify-center gap-1 bg-gray-200 text-gray-700 text-sm py-2 rounded hover:bg-gray-300"
-            >
-              <X size={14} />
-              Cancel
+            <button onClick={onCancelEdit}
+              className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium py-2.5 rounded-xl transition-all"
+              style={{ background: 'var(--fs-cream-200)', color: 'var(--fs-text-secondary)', transitionDuration: 'var(--fs-duration-fast)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-300)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)' }}>
+              <X size={14} /> Cancel
             </button>
           </div>
         </div>
       ) : (
-        // View Mode
+        /* ── View Mode ── */
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h4 className={`font-semibold ${event.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2.5 mb-2">
+              <h4 className="font-semibold truncate" style={{
+                color: event.completed ? 'var(--fs-text-muted)' : 'var(--fs-text-primary)',
+                textDecoration: event.completed ? 'line-through' : 'none',
+              }}>
                 {event.title}
               </h4>
               {isToday && !event.completed && (
-                <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded">
+                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-lg"
+                  style={{ background: 'var(--fs-sage-500)', color: 'white' }}>
                   Today
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-              <div className="flex items-center gap-1">
-                <CalendarIcon size={14} />
-                <span>{eventDate.toLocaleDateString()}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock size={14} />
-                <span>{eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
+            <div className="flex items-center gap-4 text-xs mb-2" style={{ color: 'var(--fs-text-muted)' }}>
+              <span className="inline-flex items-center gap-1">
+                <CalendarIcon size={12} strokeWidth={1.8} />
+                {eventDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Clock size={12} strokeWidth={1.8} />
+                {eventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
 
             {event.note && (
-              <p className="text-sm text-gray-600 mt-2">{event.note}</p>
+              <p className="text-sm leading-relaxed mt-1" style={{ color: 'var(--fs-text-secondary)' }}>{event.note}</p>
             )}
 
             {event.linkedCollection && (
-              <div className="mt-2">
-                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                  📚 Linked to collection
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg mt-3"
+                style={{ background: 'var(--fs-sage-50)', color: 'var(--fs-sage-700)' }}>
+                📚 Linked to collection
+              </span>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleStartEdit}
-              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Edit event"
-            >
-              <Edit2 size={18} />
-            </button>
-            <button
+          {/* Actions */}
+          <div className="flex items-center gap-1 shrink-0 ml-3 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ transitionDuration: 'var(--fs-duration-normal)' }}>
+            <ActionBtn icon={Edit2} tooltip="Edit"
+              onClick={() => onEditChange({ id: event.id, title: event.title, datetime: event.datetime, note: event.note || '' })}
+              hoverColor="var(--fs-sage-600)" hoverBg="var(--fs-sage-50)" />
+            <ActionBtn icon={CheckCircle} tooltip={event.completed ? 'Mark incomplete' : 'Mark complete'}
               onClick={() => onToggleComplete(event.id)}
-              className={`
-                p-2 rounded-lg transition-colors
-                ${event.completed 
-                  ? 'text-green-600 hover:bg-green-100' 
-                  : 'text-gray-400 hover:bg-gray-100'
-                }
-              `}
-              title={event.completed ? 'Mark incomplete' : 'Mark complete'}
-            >
-              <CheckCircle size={18} />
-            </button>
-            <button
+              baseColor={event.completed ? 'var(--fs-sage-600)' : undefined}
+              hoverColor="var(--fs-sage-600)" hoverBg="var(--fs-sage-50)" />
+            <ActionBtn icon={Trash2} tooltip="Delete"
               onClick={() => onDelete(event.id, event.title)}
-              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              title="Delete event"
-            >
-              <Trash2 size={18} />
-            </button>
+              hoverColor="#DC2626" hoverBg="#FEF2F2" />
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Shared Buttons ───
+function ActionBtn({ icon: Icon, tooltip, onClick, hoverColor, hoverBg, baseColor }: {
+  icon: any; tooltip: string; onClick: () => void;
+  hoverColor: string; hoverBg: string; baseColor?: string;
+}) {
+  return (
+    <button onClick={onClick} title={tooltip}
+      className="p-2 rounded-xl transition-all"
+      style={{ color: baseColor || 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-fast)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = hoverColor; e.currentTarget.style.background = hoverBg }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = baseColor || 'var(--fs-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
+      <Icon size={16} strokeWidth={1.8} />
+    </button>
+  )
+}
+
+function RefreshBtn({ loading, onClick }: { loading: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} disabled={loading}
+      className="p-2.5 rounded-xl transition-all disabled:opacity-50"
+      style={{ color: 'var(--fs-text-muted)', transitionDuration: 'var(--fs-duration-normal)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-cream-200)'; e.currentTarget.style.color = 'var(--fs-text-primary)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--fs-text-muted)' }}
+      title="Refresh">
+      <RefreshCw size={18} className={loading ? 'animate-spin' : ''} strokeWidth={1.8} />
+    </button>
   )
 }
 

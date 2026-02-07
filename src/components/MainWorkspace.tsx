@@ -1,9 +1,9 @@
 // components/MainWorkspace.tsx
-// CORRECTED: Uses Tambo's contextHelpers for AI context + proper suggestions integration
+// REDESIGNED: Cream/Sage palette, sidebar layout, animated transitions, mobile-first
 'use client'
 
 import { TamboProvider } from '@tambo-ai/react'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavigationBar } from './layout/NavigationBar'
 import { MessageThreadFull } from '@/components/tambo/message-thread-full'
 import { MessageThreadCollapsible } from '@/components/tambo/message-thread-collapsible'
@@ -25,23 +25,69 @@ import { LocationMap } from './interactable/LocationMap'
 import { InteractableWorkflowLibrary } from './interactable/WorkflowLibrary'
 import { InteractableReportsList } from './interactable/ReportsList'
 
-type WorkspaceView = 'search' | 'collections' | 'calendar' | 'notes' | 'studio' | 'analytics' | 'map' | 'canvas' | 'workflows' | 'reports'
+type WorkspaceView =
+  | 'search'
+  | 'collections'
+  | 'calendar'
+  | 'notes'
+  | 'studio'
+  | 'analytics'
+  | 'map'
+  | 'canvas'
+  | 'workflows'
+  | 'reports'
 
 interface MainWorkspaceProps {
   user: User
 }
 
+// ─── View metadata for header display ───
+const viewMeta: Record<WorkspaceView, { title: string; subtitle: string }> = {
+  search:      { title: 'Search',       subtitle: 'Explore the web, GitHub, and images' },
+  workflows:   { title: 'Workflows',    subtitle: 'Automate multi-step research' },
+  reports:     { title: 'Reports',      subtitle: 'Generated research documents' },
+  analytics:   { title: 'Analytics',    subtitle: 'Visualize your search data' },
+  map:         { title: 'Map',          subtitle: 'Location-based results' },
+  canvas:      { title: 'Canvas',       subtitle: 'Spatial component workspace' },
+  collections: { title: 'Collections',  subtitle: 'Saved results and bookmarks' },
+  calendar:    { title: 'Calendar',     subtitle: 'Research events and deadlines' },
+  notes:       { title: 'Notes',        subtitle: 'Your research notebook' },
+  studio:      { title: 'Studio',       subtitle: 'Generate and edit images' },
+}
+
 export function MainWorkspace({ user }: MainWorkspaceProps) {
   const [activeView, setActiveView] = useState<WorkspaceView>('search')
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
   const mcpServers = useMcpServers()
 
-  // ─────────────────────────────────────────────────────
-  // TAMBO CONTEXT HELPERS
-  // These functions run on every message and inject context
-  // so the AI knows what view the user is on and what's
-  // available. This is what powers smart suggestions.
-  // ─────────────────────────────────────────────────────
+  // ─── Responsive check ───
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
+  // ─── Animated view change ───
+  const handleViewChange = useCallback((view: WorkspaceView) => {
+    if (view === activeView) return
+    setIsTransitioning(true)
+
+    // Brief fade-out, then switch view, then fade-in
+    setTimeout(() => {
+      setActiveView(view)
+      setIsTransitioning(false)
+
+      // Scroll content to top on view change
+      if (contentRef.current) {
+        contentRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }, 180)
+  }, [activeView])
+
+  // ─── Tambo Context Helpers ───
   const activeViewHelper = useCallback(() => ({
     activeView,
     description: getViewDescription(activeView),
@@ -70,6 +116,8 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
     email: user.email,
   }), [user.id, user.email])
 
+  const meta = viewMeta[activeView]
+
   return (
     <TamboProvider
       apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
@@ -77,153 +125,190 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
       tools={tools}
       tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
       mcpServers={mcpServers}
-      // ── THIS IS THE KEY INTEGRATION ──
-      // contextHelpers inject metadata into every AI message.
-      // The AI uses this to:
-      // 1. Know which view the user is on → smarter responses
-      // 2. Know workflow capabilities → natural suggestions
-      // 3. Know about the user → personalized experience
       contextHelpers={{
         currentView: activeViewHelper,
         workflowCapabilities: workflowCapabilitiesHelper,
         userInfo: userInfoHelper,
       }}
     >
-      <div className="flex flex-col h-screen bg-gray-50">
-        {/* Navigation Bar */}
+      {/* ── Root Layout ── */}
+      <div
+        className="h-screen overflow-hidden relative fs-noise"
+        style={{ background: 'var(--fs-cream-100)' }}
+      >
+        {/* Navigation Sidebar / Bottom Bar */}
         <NavigationBar
           activeView={activeView}
-          onViewChange={setActiveView}
+          onViewChange={handleViewChange}
           userEmail={user.email!}
         />
 
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-hidden">
-          {/* Search Mode: Full Message Thread */}
-          {activeView === 'search' && (
-            <MessageThreadFull />
-          )}
-
-          {/* Collections: Component + Collapsible Chat */}
-          {activeView === 'collections' && (
-            <div className="relative h-full">
-              <InteractableCollections collections={[]} />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-
-          {/* Calendar: Component + Collapsible Chat */}
-          {activeView === 'calendar' && (
-            <div className="relative h-full">
-              <InteractableCalendar events={[]} />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-
-          {/* Notes: Component + Collapsible Chat */}
-          {activeView === 'notes' && (
-            <div className="relative h-full">
-              <InteractableNotes notes={[]} />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-
-          {/* Studio: Component + Collapsible Chat */}
-          {activeView === 'studio' && (
-            <div className="relative h-full">
-              <InteractableImageStudio
-                variations={[]}
-                currentPrompt=""
-              />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-
-          {/* Analytics: Component + Collapsible Chat */}
-          {activeView === 'analytics' && (
-            <div className="relative h-full">
-              <AnalyticsGraph />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-
-          {/* Map: Component + Collapsible Chat */}
-          {activeView === 'map' && (
-            <div className="relative h-full">
-              <LocationMap />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-
-          {/* Canvas: CanvasSpace + Collapsible Chat */}
-          {activeView === 'canvas' && (
-            <div className="relative h-full">
-              <div className="h-full bg-white">
-                <CanvasSpace
-                  className="h-full w-full"
-                />
+        {/* ── Main Content Area ── */}
+        <main
+          className="flex flex-col h-full transition-all"
+          style={{
+            marginLeft: isMobile ? 0 : 'var(--fs-sidebar-width)',
+            paddingBottom: isMobile ? '80px' : 0, // space for mobile bottom bar
+            transitionDuration: 'var(--fs-duration-slow)',
+            transitionTimingFunction: 'var(--fs-ease-out)',
+          }}
+        >
+          {/* ── View Header (shown for non-search views) ── */}
+          {activeView !== 'search' && (
+            <header
+              className="shrink-0 px-6 md:px-8 pt-6 pb-4 fs-animate-in"
+              style={{
+                borderBottom: '1px solid var(--fs-border-light)',
+                background: 'var(--fs-cream-50)',
+              }}
+            >
+              <div className="max-w-6xl">
+                <h2
+                  className="text-2xl font-bold tracking-tight"
+                  style={{
+                    fontFamily: "'Fraunces', serif",
+                    color: 'var(--fs-text-primary)',
+                  }}
+                >
+                  {meta.title}
+                </h2>
+                <p
+                  className="text-sm mt-0.5"
+                  style={{ color: 'var(--fs-text-muted)' }}
+                >
+                  {meta.subtitle}
+                </p>
               </div>
-              <MessageThreadCollapsible
-                defaultOpen={true}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
+            </header>
           )}
 
-          {/* Workflows: Component + Collapsible Chat */}
-          {activeView === 'workflows' && (
-            <div className="relative h-full">
-              <InteractableWorkflowLibrary workflows={[]} />
-              <MessageThreadCollapsible
-                defaultOpen={true}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
+          {/* ── Content with animated transitions ── */}
+          <div
+            ref={contentRef}
+            className="flex-1 overflow-hidden relative"
+            style={{
+              opacity: isTransitioning ? 0 : 1,
+              transform: isTransitioning ? 'translateY(6px)' : 'translateY(0)',
+              transition: `opacity 180ms var(--fs-ease-out), transform 180ms var(--fs-ease-out)`,
+            }}
+          >
+            {/* ── SEARCH: Full-screen message thread ── */}
+            {activeView === 'search' && (
+              <div className="h-full fs-animate-in">
+                <MessageThreadFull />
+              </div>
+            )}
 
-          {/* Reports: Component + Collapsible Chat */}
-          {activeView === 'reports' && (
-            <div className="relative h-full">
-              <InteractableReportsList reports={[]} />
-              <MessageThreadCollapsible
-                defaultOpen={false}
-                height="80vh"
-                className="absolute bottom-6 right-6 z-10"
-              />
-            </div>
-          )}
-        </div>
+            {/* ── COLLECTIONS ── */}
+            {activeView === 'collections' && (
+              <ViewShell>
+                <InteractableCollections collections={[]} />
+                <FloatingChat />
+              </ViewShell>
+            )}
 
-        {/* Floating Control Bar (Global Chat Shortcut - Cmd+K) */}
+            {/* ── CALENDAR ── */}
+            {activeView === 'calendar' && (
+              <ViewShell>
+                <InteractableCalendar events={[]} />
+                <FloatingChat />
+              </ViewShell>
+            )}
+
+            {/* ── NOTES ── */}
+            {activeView === 'notes' && (
+              <ViewShell>
+                <InteractableNotes notes={[]} />
+                <FloatingChat />
+              </ViewShell>
+            )}
+
+            {/* ── STUDIO ── */}
+            {activeView === 'studio' && (
+              <ViewShell>
+                <InteractableImageStudio variations={[]} currentPrompt="" />
+                <FloatingChat />
+              </ViewShell>
+            )}
+
+            {/* ── ANALYTICS ── */}
+            {activeView === 'analytics' && (
+              <ViewShell>
+                <AnalyticsGraph />
+                <FloatingChat />
+              </ViewShell>
+            )}
+
+            {/* ── MAP ── */}
+            {activeView === 'map' && (
+              <ViewShell>
+                <LocationMap />
+                <FloatingChat />
+              </ViewShell>
+            )}
+
+            {/* ── CANVAS ── */}
+            {activeView === 'canvas' && (
+              <ViewShell>
+                <div
+                  className="h-full rounded-2xl overflow-hidden"
+                  style={{
+                    background: 'var(--fs-cream-50)',
+                    border: '1px solid var(--fs-border-light)',
+                  }}
+                >
+                  <CanvasSpace className="h-full w-full" />
+                </div>
+                <FloatingChat defaultOpen />
+              </ViewShell>
+            )}
+
+            {/* ── WORKFLOWS ── */}
+            {activeView === 'workflows' && (
+              <ViewShell>
+                <InteractableWorkflowLibrary workflows={[]} />
+                <FloatingChat defaultOpen />
+              </ViewShell>
+            )}
+
+            {/* ── REPORTS ── */}
+            {activeView === 'reports' && (
+              <ViewShell>
+                <InteractableReportsList reports={[]} />
+                <FloatingChat />
+              </ViewShell>
+            )}
+          </div>
+        </main>
+
+        {/* ── Global Control Bar (Cmd+K) ── */}
         <ControlBar />
       </div>
     </TamboProvider>
+  )
+}
+
+// ─────────────────────────────────────────────────────
+// Sub-components
+// ─────────────────────────────────────────────────────
+
+/** Wrapper for views that have interactable content + floating chat */
+function ViewShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative h-full fs-animate-in">
+      {children}
+    </div>
+  )
+}
+
+/** Floating chat panel — positioned bottom-right, passes className directly */
+function FloatingChat({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  return (
+    <MessageThreadCollapsible
+      defaultOpen={defaultOpen}
+      height="80vh"
+      className="absolute bottom-6 right-6 z-10"
+    />
   )
 }
 
