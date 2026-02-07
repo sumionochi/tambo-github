@@ -29,7 +29,8 @@ export async function GET() {
       note: event.note,
       completed: event.completed,
       linkedCollection: event.linkedCollectionId,
-      linkedItems: (event.linkedItems as string[]) || [],
+      // Return as raw JSON — can be rich objects [{title, url, type}] or legacy strings
+      linkedItems: (event.linkedItems as any[]) || [],
     }));
 
     return NextResponse.json({ events: formattedEvents });

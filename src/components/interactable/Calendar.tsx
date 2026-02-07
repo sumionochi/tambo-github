@@ -4,7 +4,7 @@
 
 import { withInteractable, useTamboComponentState } from '@tambo-ai/react'
 import { z } from 'zod'
-import { Calendar as CalendarIcon, Clock, Trash2, CheckCircle, RefreshCw, Edit2, Check, X } from 'lucide-react'
+import { Calendar as CalendarIcon, Clock, Trash2, CheckCircle, RefreshCw, Edit2, Check, X, ExternalLink, Globe, Image, GitBranch } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { ConfirmDialog } from '@/components/dialog/ConfirmDialog'
 import { EditWithTamboButton } from '@/components/tambo/edit-with-tambo-button'
@@ -16,7 +16,15 @@ export const CalendarPropsSchema = z.object({
       title: z.string().nullable().default('').describe("Event title"),
       datetime: z.string().nullable().default('').describe("ISO datetime string"),
       linkedCollection: z.string().optional().describe("ID of linked collection"),
-      linkedItems: z.array(z.string()).optional().describe("IDs of linked items"),
+      linkedItems: z.array(z.union([
+        z.string(),
+        z.object({
+          title: z.string().optional(),
+          url: z.string().optional(),
+          type: z.string().optional(),
+          source: z.string().optional(),
+        })
+      ])).optional().describe("Linked search results or item IDs"),
       note: z.string().optional().describe("Additional notes"),
       completed: z.boolean().optional().describe("Whether event is completed"),
     })).nullable().optional()
@@ -328,6 +336,44 @@ function EventCard({ event, editingEvent, onEditChange, onCancelEdit, onSaveEdit
 
             {event.note && (
               <p className="text-sm leading-relaxed mt-1" style={{ color: 'var(--fs-text-secondary)' }}>{event.note}</p>
+            )}
+
+            {/* Linked search results — clickable links */}
+            {event.linkedItems && Array.isArray(event.linkedItems) && event.linkedItems.length > 0 && (
+              <div className="flex flex-col gap-1.5 mt-2.5">
+                {event.linkedItems.map((item: any, idx: number) => {
+                  // Handle rich objects (new format) and plain strings (legacy)
+                  if (typeof item === 'object' && item?.url) {
+                    const typeIcon = item.type === 'repo' ? GitBranch : item.type === 'image' ? Image : Globe
+                    const TypeIcon = typeIcon
+                    return (
+                      <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg transition-all group/link"
+                        style={{
+                          background: 'var(--fs-sage-50)',
+                          color: 'var(--fs-sage-700)',
+                          transitionDuration: 'var(--fs-duration-fast)',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-100)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-50)' }}>
+                        <TypeIcon size={13} strokeWidth={1.8} className="shrink-0" />
+                        <span className="truncate max-w-[200px]">{item.title || item.url}</span>
+                        <ExternalLink size={11} strokeWidth={2} className="shrink-0 opacity-50 group-hover/link:opacity-100 transition-opacity" />
+                      </a>
+                    )
+                  }
+                  // Legacy: plain string
+                  if (typeof item === 'string' && item.trim()) {
+                    return (
+                      <span key={idx} className="text-xs px-3 py-1.5 rounded-lg"
+                        style={{ background: 'var(--fs-cream-200)', color: 'var(--fs-text-secondary)' }}>
+                        {item}
+                      </span>
+                    )
+                  }
+                  return null
+                })}
+              </div>
             )}
 
             {event.linkedCollection && (

@@ -149,8 +149,18 @@ The system will automatically extract the URLs and details for you.`,
   },
   {
     name: "create_calendar_event",
-    description:
-      "Create a calendar event with optional links to collections. Use when user wants to schedule time or set reminders.",
+    description: `Create a calendar event. Can optionally save search results as linked items.
+
+When user says "schedule the 3rd and 4th results":
+1. Pass searchQuery, searchType, and indices so the API auto-resolves the actual URLs/titles from the cached search session
+2. The resolved items will be stored as clickable links in the event
+
+Example: schedule results #3 and #4 from a web search for "React tutorials":
+  searchQuery: "React tutorials"
+  searchType: "web"
+  indices: [2, 3]  (0-indexed: 3rd=2, 4th=3)
+
+You can also pass linkedCollectionId to link an existing collection.`,
     tool: async (input: any) => {
       const response = await fetch("/api/tools/calendar/create", {
         method: "POST",
@@ -167,7 +177,22 @@ The system will automatically extract the URLs and details for you.`,
         .string()
         .optional()
         .describe("ID of linked collection"),
-      linkedItems: z.array(z.string()).optional().describe("Array of item IDs"),
+      searchQuery: z
+        .string()
+        .optional()
+        .describe(
+          "Search query to resolve results from (e.g., 'React tutorials')"
+        ),
+      searchType: z
+        .enum(["web", "pexels", "github"])
+        .optional()
+        .describe("Type of search the results came from"),
+      indices: z
+        .array(z.number())
+        .optional()
+        .describe(
+          "Zero-based indices of results to link (e.g., [2, 3] for 3rd & 4th)"
+        ),
     }),
     outputSchema: z.object({
       success: z.boolean(),
