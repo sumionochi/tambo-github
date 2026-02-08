@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { TamboComponent } from '@tambo-ai/react'
 import { useEffect, useState } from 'react'
 import { Calendar, Clock, CheckCircle2, ExternalLink, Globe, GitBranch, Image, ArrowRight } from 'lucide-react'
+import { MonthGrid } from '@/components/shared/MonthGrid'
 
 // ─── Schema ───
 export const CalendarInlinePropsSchema = z.object({
@@ -68,16 +69,28 @@ function CalendarInline({ maxItems, showCompleted, filterTitle }: Props) {
   // Loading
   if (loading) {
     return (
-      <div className="rounded-2xl p-6 fs-animate-in" style={{ background: 'var(--fs-cream-100)', border: '1px solid var(--fs-cream-300)' }}>
-        <div className="flex items-center gap-3">
+      <div className="rounded-2xl overflow-hidden fs-animate-in" style={{ background: 'var(--fs-cream-100)', border: '1px solid var(--fs-cream-300)' }}>
+        <div className="flex items-center gap-3 px-5 pt-4 pb-3">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--fs-sage-100)' }}>
             <Calendar size={16} style={{ color: 'var(--fs-sage-600)' }} />
           </div>
-          <div className="h-4 w-32 rounded-lg animate-pulse" style={{ background: 'var(--fs-cream-300)' }} />
+          <div className="h-4 w-36 rounded-lg animate-pulse" style={{ background: 'var(--fs-cream-300)' }} />
         </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-16 rounded-xl mt-3 animate-pulse" style={{ background: 'var(--fs-cream-200)' }} />
+        {/* Grid skeleton */}
+        <div className="px-4 pb-2">
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--fs-cream-200)' }}>
+            <div className="grid grid-cols-7 gap-px p-1" style={{ background: 'var(--fs-cream-50)' }}>
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div key={i} className="h-9 rounded animate-pulse" style={{ background: i % 5 === 0 ? 'var(--fs-cream-200)' : 'var(--fs-cream-100)', animationDelay: `${i * 20}ms` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+        {/* Event skeleton */}
+        {[1, 2].map(i => (
+          <div key={i} className="h-14 rounded-xl mx-4 mb-2 animate-pulse" style={{ background: 'var(--fs-cream-200)' }} />
         ))}
+        <div className="h-3" />
       </div>
     )
   }
@@ -85,16 +98,22 @@ function CalendarInline({ maxItems, showCompleted, filterTitle }: Props) {
   // Empty
   if (display.length === 0) {
     return (
-      <div className="rounded-2xl p-6 fs-animate-in" style={{ background: 'var(--fs-cream-100)', border: '1px solid var(--fs-cream-300)' }}>
-        <div className="flex items-center gap-3 mb-3">
+      <div className="rounded-2xl overflow-hidden fs-animate-in"
+        style={{ background: 'var(--fs-cream-100)', border: '1px solid var(--fs-cream-300)' }}>
+        <div className="flex items-center gap-3 px-5 pt-4 pb-2">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'var(--fs-sage-100)' }}>
             <Calendar size={16} style={{ color: 'var(--fs-sage-600)' }} />
           </div>
           <span className="text-sm font-semibold" style={{ color: 'var(--fs-text-primary)' }}>Calendar</span>
         </div>
-        <p className="text-sm" style={{ color: 'var(--fs-text-muted)' }}>
-          No upcoming events. Try scheduling something!
-        </p>
+        <div className="px-4 pb-2">
+          <MonthGrid events={events as any} compact />
+        </div>
+        <div className="px-5 pb-4">
+          <p className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>
+            No upcoming events. Try scheduling something!
+          </p>
+        </div>
       </div>
     )
   }
@@ -119,6 +138,23 @@ function CalendarInline({ maxItems, showCompleted, filterTitle }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Compact Month Grid */}
+      <div className="px-4 pb-2">
+        <MonthGrid events={events as any} compact />
+      </div>
+
+      {/* Upcoming Events divider */}
+      {display.length > 0 && (
+        <div className="flex items-center gap-2 px-5 pt-2 pb-1">
+          <Calendar size={13} strokeWidth={2} style={{ color: 'var(--fs-sage-600)' }} />
+          <span className="text-[11px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--fs-text-muted)', letterSpacing: '0.06em' }}>
+            Upcoming Events
+          </span>
+          <div className="flex-1 h-px" style={{ background: 'var(--fs-cream-300)' }} />
+        </div>
+      )}
 
       {/* Events */}
       <div className="px-4 pb-4 space-y-2 mt-1">

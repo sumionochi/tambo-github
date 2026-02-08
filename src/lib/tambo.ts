@@ -22,6 +22,7 @@ import { collectionsInlineComponent } from "@/components/generative/CollectionsI
 import { notesInlineComponent } from "@/components/generative/NotesInline";
 import { imageStudioInlineComponent } from "@/components/generative/ImageStudioInline";
 import { analyticsInlineComponent } from "@/components/generative/AnalyticsInline";
+import { mapInlineComponent } from "@/components/generative/MapInline";
 
 // Import example services (keep these if they're client-safe)
 import {
@@ -60,6 +61,7 @@ export const components: TamboComponent[] = [
   notesInlineComponent,
   imageStudioInlineComponent,
   analyticsInlineComponent,
+  mapInlineComponent,
 ];
 
 // Client-safe tool wrappers that call API routes

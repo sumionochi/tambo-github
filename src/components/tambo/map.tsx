@@ -19,6 +19,10 @@ import L, {
   type LatLng,
   type MarkerClusterGroupOptions,
 } from "leaflet";
+// ⚠️ CRITICAL: This CSS controls tile grid layout, zoom controls, markers.
+// Without it, map tiles render as broken fragments.
+import "leaflet/dist/leaflet.css";
+
 import "leaflet.heat";
 import "leaflet.markercluster";
 import "leaflet.markercluster/dist/MarkerCluster.css";
@@ -27,28 +31,24 @@ import * as React from "react";
 import {
   MapContainer,
   Marker,
+  Polyline,
   TileLayer,
   Tooltip,
+  useMap,
   useMapEvents,
 } from "react-leaflet";
 import { z } from "zod/v3";
 
 /**
  * Props interface for MarkerClusterGroup component
- * @interface MarkerClusterGroupProps
- * @extends {MarkerClusterGroupOptions}
  */
 interface MarkerClusterGroupProps extends MarkerClusterGroupOptions {
-  /** React children elements to be rendered within the cluster group */
   children?: React.ReactNode;
-  /** Optional function to create custom cluster icons */
   iconCreateFunction?: (cluster: L.MarkerCluster) => L.DivIcon;
 }
 
 /**
  * ClusterGroup component for grouping markers on the map
- * @param {MarkerClusterGroupProps} props - The component props
- * @returns {null} - This component doesn't render anything directly
  */
 const ClusterGroup: React.FC<MarkerClusterGroupProps> = ({
   children,
@@ -70,7 +70,6 @@ const ClusterGroup: React.FC<MarkerClusterGroupProps> = ({
 
     React.Children.forEach(children, (child) => {
       if (React.isValidElement(child)) {
-        // Fix: Cast child to a ReactElement with the expected props
         const element = child as React.ReactElement<
           L.MarkerOptions & {
             position: L.LatLngExpression;
@@ -91,8 +90,6 @@ const ClusterGroup: React.FC<MarkerClusterGroupProps> = ({
             | undefined;
 
           if (tooltipChild) {
-            // Leaflet expects a string or HTMLElement, but ReactNode is broader.
-            // Casting to `any` here is safe because Leaflet handles string conversion internally for tooltips.
             marker.bindTooltip(tooltipChild.props.children as any, {
               direction: tooltipChild.props.direction ?? "auto",
               permanent: tooltipChild.props.permanent ?? false,
@@ -116,21 +113,11 @@ const ClusterGroup: React.FC<MarkerClusterGroupProps> = ({
 
 /**
  * Props interface for HeatLayer component
- * @interface HeatLayerProps
- * @extends {LayerProps}
- * @extends {L.HeatMapOptions}
  */
 interface HeatLayerProps extends LayerProps, L.HeatMapOptions {
-  /** Array of latitude/longitude coordinates with optional intensity values for heatmap */
   latlngs: (LatLng | HeatLatLngTuple)[];
 }
 
-/**
- * Creates a heat layer for the map
- * @param {HeatLayerProps} props - Heat layer properties including coordinates and options
- * @param {LeafletContextInterface} context - Leaflet context interface
- * @returns {Object} - Element object for the heat layer
- */
 const createHeatLayer = (
   { latlngs, ...options }: HeatLayerProps,
   context: LeafletContextInterface,
@@ -139,12 +126,6 @@ const createHeatLayer = (
   return createElementObject(layer, context);
 };
 
-/**
- * Updates an existing heat layer with new data
- * @param {L.HeatLayer} layer - The heat layer instance to update
- * @param {HeatLayerProps} props - New properties for the heat layer
- * @param {HeatLayerProps} prevProps - Previous properties for comparison
- */
 const updateHeatLayer = (
   layer: L.HeatLayer,
   { latlngs, ...options }: HeatLayerProps,
@@ -155,9 +136,6 @@ const updateHeatLayer = (
   updateGridLayer(layer, options, prevProps);
 };
 
-/**
- * HeatLayer component for displaying heatmap data on the map
- */
 const HeatLayer = createLayerComponent<L.HeatLayer, HeatLayerProps>(
   createHeatLayer,
   updateHeatLayer,
@@ -165,7 +143,6 @@ const HeatLayer = createLayerComponent<L.HeatLayer, HeatLayerProps>(
 
 /**
  * Fix for Leaflet marker icons in SSR/Next.js environments
- * Loads marker icons from CDN to prevent missing icon issues
  */
 if (typeof window !== "undefined") {
   void import("leaflet").then((L) => {
@@ -183,10 +160,6 @@ if (typeof window !== "undefined") {
   });
 }
 
-/**
- * Variants for the map component
- * Defines different size, theme, and rounded corner options for the map
- */
 export const mapVariants = cva(
   "w-full transition-all duration-200 bg-background border border-border",
   {
@@ -211,79 +184,50 @@ export const mapVariants = cva(
   },
 );
 
-/**
- * Zod schema for validating marker data
- * Ensures latitude is between -90 and 90, longitude between -180 and 180
- */
 export const markerSchema = z.object({
-  /** Latitude coordinate (must be between -90 and 90) */
   lat: z.number().min(-90).max(90),
-  /** Longitude coordinate (must be between -180 and 180) */
   lng: z.number().min(-180).max(180),
-  /** Display label for the marker */
   label: z.string(),
-  /** Optional unique identifier for the marker */
   id: z.string().optional(),
 });
 
-/**
- * Zod schema for validating heatmap data points
- * Includes intensity value between 0 and 1 for heat visualization
- */
 export const heatDataSchema = z.object({
-  /** Latitude coordinate (must be between -90 and 90) */
   lat: z.number().min(-90).max(90),
-  /** Longitude coordinate (must be between -180 and 180) */
   lng: z.number().min(-180).max(180),
-  /** Intensity value for heatmap (must be between 0 and 1) */
   intensity: z.number().min(0).max(1),
 });
 
-/**
- * Zod schema for validating map component props
- * Defines all configurable options for the map component
- */
 export const mapSchema = z.object({
-  /** Center coordinates of the map */
   center: z.object({ lat: z.number(), lng: z.number() }),
-  /** Initial zoom level (1-20, default: 10) */
   zoom: z.number().min(1).max(20).default(10),
-  /** Array of marker objects to display on the map */
   markers: z.array(markerSchema).default([]),
-  /** Optional array of heatmap data points */
   heatData: z.array(heatDataSchema).optional().nullable(),
-  /** Whether to show zoom controls (default: true) */
   zoomControl: z.boolean().optional().default(true),
-  /** Optional Tailwind CSS classes for the map container */
   className: z
     .string()
     .optional()
     .describe("Optional tailwind className for the map container"),
-  /** Size variant for the map */
   size: z.enum(["sm", "md", "lg", "full"]).optional(),
-  /** Map tile theme (affects the actual map tiles, not container styling) */
   tileTheme: z.enum(["default", "dark", "light", "satellite"]).optional(),
-  /** Border radius variant */
   rounded: z.enum(["none", "sm", "md", "full"]).optional(),
 });
 
-/** Type definition for marker data based on the marker schema */
 export type MarkerData = z.infer<typeof markerSchema>;
-/** Type definition for heatmap data based on the heat data schema */
 export type HeatData = z.infer<typeof heatDataSchema>;
-/** Type definition for map props combining schema and variant props */
 export type MapProps = z.infer<typeof mapSchema> &
   VariantProps<typeof mapVariants> & {
     /** @deprecated Use tileTheme instead */
     theme?: "default" | "dark" | "light" | "satellite";
+    /** Array of [lat, lng] points to draw as a route polyline */
+    routeLine?: [number, number][];
+    /** Route polyline color (default: sage) */
+    routeColor?: string;
+    /** Use numbered circle markers instead of default pins (for routes) */
+    numberedMarkers?: boolean;
+    /** Auto-fit map bounds to show all markers + route */
+    fitBounds?: boolean;
   };
 
-/**
- * Hook to filter and validate marker data
- * Removes invalid markers that don't meet coordinate or label requirements
- * @param {MarkerData[]} markers - Array of marker objects to validate
- * @returns {MarkerData[]} - Array of valid marker objects
- */
 function useValidMarkers(markers: MarkerData[] = []) {
   return React.useMemo(
     () =>
@@ -302,12 +246,6 @@ function useValidMarkers(markers: MarkerData[] = []) {
   );
 }
 
-/**
- * Hook to filter and validate heatmap data
- * Converts valid heat data to the format expected by Leaflet heatLayer
- * @param {HeatData[] | null} heatData - Array of heatmap data points
- * @returns {HeatLatLngTuple[]} - Array of validated heat data tuples
- */
 function useValidHeatData(heatData?: HeatData[] | null) {
   return React.useMemo(() => {
     if (!Array.isArray(heatData)) return [];
@@ -328,11 +266,6 @@ function useValidHeatData(heatData?: HeatData[] | null) {
   }, [heatData]);
 }
 
-/**
- * Loading spinner component displayed while map is generating or loading
- * Shows animated dots with "Loading map..." text
- * @returns {JSX.Element} - Loading spinner component
- */
 function LoadingSpinner() {
   return (
     <div className="h-full w-full flex items-center justify-center">
@@ -348,11 +281,6 @@ function LoadingSpinner() {
   );
 }
 
-/**
- * Map click handler component that centers the map on clicked location
- * Uses useMapEvents hook to listen for click events on the map
- * @returns {null} - This component doesn't render anything
- */
 function MapClickHandler() {
   const animateRef = React.useRef(true);
   useMapEvents({
@@ -365,31 +293,149 @@ function MapClickHandler() {
 }
 
 /**
+ * Fixes broken tile rendering when Leaflet initializes inside a
+ * dynamically-loaded container (next/dynamic with ssr:false).
+ * The container may not have its final dimensions when Leaflet
+ * calculates tile positions — invalidateSize() forces recalculation.
+ */
+function MapResizeHandler() {
+  const map = useMapEvents({});
+
+  React.useEffect(() => {
+    if (!map) return;
+
+    // Immediate + delayed invalidateSize to catch layout shifts
+    const timers = [
+      setTimeout(() => map.invalidateSize(), 100),
+      setTimeout(() => map.invalidateSize(), 300),
+      setTimeout(() => map.invalidateSize(), 600),
+    ];
+
+    // Also invalidate on window resize
+    const onResize = () => map.invalidateSize();
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [map]);
+
+  return null;
+}
+
+/**
+ * Auto-fits the map viewport to show all markers and route line.
+ * Uses padding to ensure nothing is cut off at edges.
+ */
+function FitBoundsHandler({
+  markers,
+  routeLine,
+}: {
+  markers: MarkerData[];
+  routeLine?: [number, number][];
+}) {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (!map) return;
+
+    const points: L.LatLngExpression[] = [];
+
+    // Add all marker positions
+    markers.forEach((m) => points.push([m.lat, m.lng]));
+
+    // Add route line points (sample every Nth for perf)
+    if (routeLine && routeLine.length > 0) {
+      const step = Math.max(1, Math.floor(routeLine.length / 50));
+      for (let i = 0; i < routeLine.length; i += step) {
+        points.push(routeLine[i]);
+      }
+      // Always include last point
+      points.push(routeLine[routeLine.length - 1]);
+    }
+
+    if (points.length >= 2) {
+      const bounds = L.latLngBounds(points);
+      // Delay to ensure map container is sized
+      setTimeout(() => {
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      }, 200);
+    }
+  }, [map, markers, routeLine]);
+
+  return null;
+}
+
+/**
+ * Creates a numbered circle DivIcon for route stop markers.
+ * Sage-colored circle with white number text.
+ */
+function createNumberedIcon(number: number, isFirst: boolean, isLast: boolean) {
+  const bg = isFirst
+    ? "#3D643D" // dark sage for origin
+    : isLast
+      ? "#B91C1C" // red for destination
+      : "#5B8F5B"; // sage for intermediate
+
+  const size = isFirst || isLast ? 32 : 26;
+
+  return L.divIcon({
+    html: `<div style="
+      width:${size}px; height:${size}px;
+      background:${bg};
+      color:white;
+      border: 2.5px solid white;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      font-size:${isFirst || isLast ? 13 : 11}px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      font-family: system-ui, -apple-system, sans-serif;
+    ">${number}</div>`,
+    className: "route-numbered-marker",
+    iconSize: L.point(size, size),
+    iconAnchor: L.point(size / 2, size / 2),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAFE HOOKS — allow Map to render BOTH inside Tambo message
+// threads (chat) AND standalone in tab views (LocationMap)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Safe wrapper for useTambo — returns null thread when outside TamboProvider
+ */
+function useTamboSafe() {
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useTambo();
+  } catch {
+    return { thread: null } as any;
+  }
+}
+
+/**
+ * Safe wrapper for useTamboCurrentMessage — returns null when
+ * outside TamboMessageProvider (e.g., when Map is rendered in
+ * LocationMap tab view instead of inside a chat message)
+ */
+function useTamboCurrentMessageSafe() {
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useTamboCurrentMessage();
+  } catch {
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+
+/**
  * Interactive map component with support for markers, heatmaps, and clustering
- *
- * Features:
- * - Multiple tile layer themes (default, dark, light, satellite)
- * - Marker clustering with custom icons
- * - Heatmap visualization
- * - Responsive sizing variants
- * - Loading states during generation
- * - Click-to-center functionality
- * - Zoom controls
- * - Tooltip support for markers
- *
- * @example
- * ```
- * <Map
- * center={{ lat: 0, lng: 0 }}
- * zoom={10}
- * markers={[{ lat: 0, lng: 0, label: "Marker 1" }]}
- * heatData={[{ lat: 0, lng: 0, intensity: 0.5 }]}
- * />
- * ```
- *
- * @param {MapProps} props - Map component properties
- * @param {React.Ref<HTMLDivElement>} ref - Forward ref for the container element
- * @returns {JSX.Element} - The rendered map component
  */
 export const Map = React.forwardRef<HTMLDivElement, MapProps>(
   (
@@ -404,16 +450,22 @@ export const Map = React.forwardRef<HTMLDivElement, MapProps>(
       tileTheme,
       theme,
       rounded = "md",
+      routeLine,
+      routeColor = "#3D643D",
+      numberedMarkers = false,
+      fitBounds = false,
       ...props
     },
     ref,
   ) => {
     // Support deprecated theme prop, prefer tileTheme
     const effectiveTileTheme = tileTheme ?? theme ?? "default";
-    const { thread } = useTambo();
-    const currentMessage = useTamboCurrentMessage();
 
-    const message = thread?.messages[thread?.messages.length - 1];
+    // ── SAFE: works both inside and outside Tambo message context ──
+    const { thread } = useTamboSafe();
+    const currentMessage = useTamboCurrentMessageSafe();
+
+    const message = thread?.messages?.[thread?.messages?.length - 1];
 
     const isLatestMessage = message?.id && message.id === currentMessage?.id;
 
@@ -488,61 +540,118 @@ export const Map = React.forwardRef<HTMLDivElement, MapProps>(
             />
           )}
 
-          <ClusterGroup
-            chunkedLoading
-            animate
-            animateAddingMarkers
-            zoomToBoundsOnClick
-            maxClusterRadius={75}
-            showCoverageOnHover={false}
-            spiderfyOnMaxZoom
-            spiderfyDistanceMultiplier={1.5}
-            iconCreateFunction={(cluster: L.MarkerCluster) => {
-              const count = cluster.getChildCount();
-              let size: "small" | "medium" | "large" = "small";
-              let colorClass = "bg-blue-500";
-              if (count < 10) {
-                size = "small";
-                colorClass = "bg-blue-500";
-              } else if (count < 100) {
-                size = "medium";
-                colorClass = "bg-orange-500";
-              } else {
-                size = "large";
-                colorClass = "bg-red-500";
-              }
-              const sizeClasses: Record<
-                "small" | "medium" | "large",
-                string
-              > = {
-                small: "w-8 h-8 text-xs",
-                medium: "w-10 h-10 text-sm",
-                large: "w-12 h-12 text-base",
-              };
-              let iconSize = 48;
-              if (size === "small") {
-                iconSize = 32;
-              } else if (size === "medium") {
-                iconSize = 40;
-              }
-              return L.divIcon({
-                html: `<div class="flex items-center justify-center ${colorClass} ${sizeClasses[size]} text-white font-bold rounded-xl border-2 border-white shadow-lg transition-all duration-200 hover:scale-110 hover:brightness-90">${count}</div>`,
-                className: "custom-cluster-icon",
-                iconSize: L.point(iconSize, iconSize),
-                iconAnchor: L.point(iconSize / 2, iconSize / 2),
-              });
-            }}
-          >
-            {validMarkers.map((marker, idx) => (
-              <Marker
-                key={marker.id ?? `marker-${idx}`}
-                position={[marker.lat, marker.lng]}
-              >
-                <Tooltip>{marker.label}</Tooltip>
-              </Marker>
-            ))}
-          </ClusterGroup>
+          {/* Route polyline — drawn BEFORE markers so markers appear on top */}
+          {routeLine && routeLine.length >= 2 && (
+            <>
+              {/* Shadow line for depth */}
+              <Polyline
+                positions={routeLine}
+                pathOptions={{
+                  color: "#00000020",
+                  weight: 8,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+              {/* Main route line */}
+              <Polyline
+                positions={routeLine}
+                pathOptions={{
+                  color: routeColor,
+                  weight: 4,
+                  opacity: 0.85,
+                  lineCap: "round",
+                  lineJoin: "round",
+                  dashArray: undefined,
+                }}
+              />
+            </>
+          )}
+
+          {/* Numbered route markers (no clustering) */}
+          {numberedMarkers && validMarkers.length > 0 ? (
+            <>
+              {validMarkers.map((marker, idx) => (
+                <Marker
+                  key={marker.id ?? `route-marker-${idx}`}
+                  position={[marker.lat, marker.lng]}
+                  icon={createNumberedIcon(
+                    idx + 1,
+                    idx === 0,
+                    idx === validMarkers.length - 1,
+                  )}
+                >
+                  <Tooltip direction="top" offset={[0, -14]}>
+                    {marker.label}
+                  </Tooltip>
+                </Marker>
+              ))}
+            </>
+          ) : (
+            /* Standard clustered markers */
+            <ClusterGroup
+              chunkedLoading
+              animate
+              animateAddingMarkers
+              zoomToBoundsOnClick
+              maxClusterRadius={75}
+              showCoverageOnHover={false}
+              spiderfyOnMaxZoom
+              spiderfyDistanceMultiplier={1.5}
+              iconCreateFunction={(cluster: L.MarkerCluster) => {
+                const count = cluster.getChildCount();
+                let size: "small" | "medium" | "large" = "small";
+                let colorClass = "bg-blue-500";
+                if (count < 10) {
+                  size = "small";
+                  colorClass = "bg-blue-500";
+                } else if (count < 100) {
+                  size = "medium";
+                  colorClass = "bg-orange-500";
+                } else {
+                  size = "large";
+                  colorClass = "bg-red-500";
+                }
+                const sizeClasses: Record<
+                  "small" | "medium" | "large",
+                  string
+                > = {
+                  small: "w-8 h-8 text-xs",
+                  medium: "w-10 h-10 text-sm",
+                  large: "w-12 h-12 text-base",
+                };
+                let iconSize = 48;
+                if (size === "small") {
+                  iconSize = 32;
+                } else if (size === "medium") {
+                  iconSize = 40;
+                }
+                return L.divIcon({
+                  html: `<div class="flex items-center justify-center ${colorClass} ${sizeClasses[size]} text-white font-bold rounded-xl border-2 border-white shadow-lg transition-all duration-200 hover:scale-110 hover:brightness-90">${count}</div>`,
+                  className: "custom-cluster-icon",
+                  iconSize: L.point(iconSize, iconSize),
+                  iconAnchor: L.point(iconSize / 2, iconSize / 2),
+                });
+              }}
+            >
+              {validMarkers.map((marker, idx) => (
+                <Marker
+                  key={marker.id ?? `marker-${idx}`}
+                  position={[marker.lat, marker.lng]}
+                >
+                  <Tooltip>{marker.label}</Tooltip>
+                </Marker>
+              ))}
+            </ClusterGroup>
+          )}
+
+          {/* Auto-fit bounds to show full route */}
+          {fitBounds && (
+            <FitBoundsHandler markers={validMarkers} routeLine={routeLine} />
+          )}
+
           <MapClickHandler />
+          <MapResizeHandler />
         </MapContainer>
       </div>
     );
@@ -551,9 +660,6 @@ export const Map = React.forwardRef<HTMLDivElement, MapProps>(
 
 Map.displayName = "Map";
 
-/**
- * Internal function to get tile layer URL based on tile theme
- */
 function getTileLayerUrl(
   tileTheme: "default" | "dark" | "light" | "satellite",
 ): string {

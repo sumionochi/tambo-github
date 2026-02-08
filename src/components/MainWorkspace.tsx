@@ -96,6 +96,16 @@ export function MainWorkspace({ user }: MainWorkspaceProps) {
   const inlineComponentsGuide = useCallback(() => ({
     description: `IMPORTANT: You have inline generative components that render rich UI directly in the chat thread. ALWAYS prefer rendering these components over plain text responses when the user asks about their data.
 
+MAP ROUTING (CRITICAL — renders interactive Leaflet map in chat):
+- "Find restaurants near Times Square" → Render MapInline with mode="search", query="restaurants near Times Square"
+- "Coffee shops in Berlin" → Render MapInline with mode="search", query="coffee shops in Berlin"
+- "Explore Tokyo" / "Show me landmarks in Paris" → Render MapInline with mode="explore", query="Tokyo"
+- "Plan a route from Mumbai to Delhi" → Render MapInline with mode="route", query="Mumbai|Delhi"
+- "Route from Paris to Berlin to Prague" → Render MapInline with mode="route", query="Paris|Berlin|Prague"
+- ANY location/place/city/restaurant/hotel query → Render MapInline (NEVER just text)
+For route mode: separate stops with "|" in the query prop.
+NEVER tell users to "switch to the Map tab" — ALWAYS render MapInline directly in chat.
+
 ANALYTICS ROUTING (CRITICAL):
 - "Compare X vs Y on GitHub" → Render AnalyticsInline with analysisType="github-comparison", queries=["X","Y"]
 - "Show search trends for X" → Render AnalyticsInline with analysisType="search-trends", queries=["X"]
@@ -108,9 +118,10 @@ COMPONENT RENDERING RULES:
 2. "Show my collections" / "What have I bookmarked?" → Render CollectionsInline component
 3. "Show my notes" / "What notes have I saved?" → Render NotesInline component
 4. "Show my edited images" / "What's in my studio?" → Render ImageStudioInline component
-5. After creating a calendar event → Render CalendarInline to CONFIRM it appears
-6. After bookmarking results → Render CollectionsInline to SHOW the saved items
-7. After saving a note → Render NotesInline to CONFIRM it was saved
+5. "Find X near Y" / "Restaurants in Z" / "Explore city" → Render MapInline component (NOT text list)
+6. After creating a calendar event → Render CalendarInline to CONFIRM it appears
+7. After bookmarking results → Render CollectionsInline to SHOW the saved items
+8. After saving a note → Render NotesInline to CONFIRM it was saved
 
 FILTERING:
 - "Show my Learning Resources collection" → CollectionsInline with collectionName="Learning Resources"

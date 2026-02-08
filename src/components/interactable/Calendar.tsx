@@ -8,6 +8,7 @@ import { Calendar as CalendarIcon, Clock, Trash2, CheckCircle, RefreshCw, Edit2,
 import { useEffect, useState, useRef } from 'react'
 import { ConfirmDialog } from '@/components/dialog/ConfirmDialog'
 import { EditWithTamboButton } from '@/components/tambo/edit-with-tambo-button'
+import { MonthGrid } from '@/components/shared/MonthGrid'
 
 // Zod Schema
 export const CalendarPropsSchema = z.object({
@@ -52,6 +53,7 @@ function Calendar({ events: initialEvents }: CalendarProps) {
   const isLoadingRef = useRef(false)
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; eventId: string; eventTitle: string } | null>(null)
   const [editingEvent, setEditingEvent] = useState<EditingEvent | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
 
   useEffect(() => {
     if (!hasLoadedRef.current && !isLoadingRef.current) loadEvents()
@@ -115,8 +117,19 @@ function Calendar({ events: initialEvents }: CalendarProps) {
   }
 
   const sortedEvents = [...safeEvents].sort((a, b) => new Date(a.datetime || 0).getTime() - new Date(b.datetime || 0).getTime())
-  const upcomingEvents = sortedEvents.filter(e => !e.completed)
-  const completedEvents = sortedEvents.filter(e => e.completed)
+
+  // Filter by selected date if one is clicked on the grid
+  const filteredByDate = selectedDate
+    ? sortedEvents.filter(e => {
+        const d = new Date(e.datetime || 0)
+        return d.getFullYear() === selectedDate.getFullYear()
+          && d.getMonth() === selectedDate.getMonth()
+          && d.getDate() === selectedDate.getDate()
+      })
+    : sortedEvents
+
+  const upcomingEvents = filteredByDate.filter(e => !e.completed)
+  const completedEvents = filteredByDate.filter(e => e.completed)
 
   // ─── Loading ───
   if (loading && safeEvents.length === 0) {
@@ -134,26 +147,35 @@ function Calendar({ events: initialEvents }: CalendarProps) {
   // ─── Empty ───
   if (safeEvents.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center fs-animate-in" style={{ maxWidth: 320 }}>
-          <div className="mx-auto mb-5 w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ background: 'var(--fs-sage-50)' }}>
-            <CalendarIcon size={28} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+      <div className="p-6 md:p-8 overflow-y-auto h-full fs-scrollbar">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8 fs-animate-in">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
+              My Calendar
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--fs-text-muted)' }}>No events scheduled</p>
           </div>
-          <p className="text-lg font-semibold" style={{ color: 'var(--fs-text-primary)', fontFamily: "'Fraunces', serif" }}>
-            No Events Scheduled
+          <RefreshBtn loading={loading} onClick={handleRefresh} />
+        </div>
+
+        {/* Empty month grid — still shows the calendar */}
+        <div className="mb-6 fs-animate-in" style={{ animationDelay: '50ms' }}>
+          <MonthGrid events={[]} />
+        </div>
+
+        {/* Empty state message */}
+        <div className="text-center py-8 fs-animate-in" style={{ animationDelay: '100ms' }}>
+          <div className="mx-auto mb-4 w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--fs-sage-50)' }}>
+            <CalendarIcon size={24} style={{ color: 'var(--fs-sage-400)' }} strokeWidth={1.5} />
+          </div>
+          <p className="text-sm font-medium" style={{ color: 'var(--fs-text-secondary)' }}>
+            No events yet
           </p>
-          <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--fs-text-muted)' }}>
+          <p className="text-xs mt-1.5" style={{ color: 'var(--fs-text-muted)' }}>
             Ask AI to schedule reminders or events
           </p>
-          <button onClick={handleRefresh}
-            className="mt-5 px-5 py-2.5 text-sm font-medium rounded-xl inline-flex items-center gap-2 transition-all"
-            style={{ background: 'var(--fs-sage-600)', color: 'var(--fs-text-on-green)', boxShadow: 'var(--fs-shadow-sm)', transitionDuration: 'var(--fs-duration-normal)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--fs-sage-700)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--fs-sage-600)' }}
-          >
-            <RefreshCw size={15} /> Refresh
-          </button>
         </div>
       </div>
     )
@@ -177,6 +199,42 @@ function Calendar({ events: initialEvents }: CalendarProps) {
             <RefreshBtn loading={loading} onClick={handleRefresh} />
           </div>
         </div>
+
+        {/* Month Grid */}
+        <div className="mb-6 fs-animate-in" style={{ animationDelay: '50ms' }}>
+          <MonthGrid
+            events={safeEvents as any}
+            onDayClick={(date) => {
+              // Toggle: click same date to deselect
+              if (selectedDate && date.toDateString() === selectedDate.toDateString()) {
+                setSelectedDate(null)
+              } else {
+                setSelectedDate(date)
+              }
+            }}
+            selectedDate={selectedDate}
+            onDeleteEvent={(id, title) => setConfirmDialog({ isOpen: true, eventId: id, eventTitle: title })}
+          />
+        </div>
+
+        {/* Active date filter chip */}
+        {selectedDate && (
+          <div className="flex items-center gap-2 mb-5 fs-animate-in">
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-2"
+              style={{ background: 'var(--fs-sage-100)', color: 'var(--fs-sage-700)' }}>
+              📅 {selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-white/60 transition-colors"
+                style={{ color: 'var(--fs-sage-600)' }}>
+                ×
+              </button>
+            </span>
+            <span className="text-xs" style={{ color: 'var(--fs-text-muted)' }}>
+              {filteredByDate.length} event{filteredByDate.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
 
         {/* Upcoming */}
         {upcomingEvents.length > 0 && (

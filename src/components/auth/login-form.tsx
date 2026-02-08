@@ -31,8 +31,9 @@ export function LoginForm() {
       {/* Branding */}
       <div className="text-center">
         <h2 className="text-4xl font-bold" style={{ color: 'var(--fs-sage-700)', fontFamily: "'Fraunces', serif" }}>
-          Tambo AI Search
+          Tambo Browser
         </h2>
+        <p>Natural Language as a User Interface for Generative and Interactable UI as a Search Engine like Perplexity</p>
         <p className="mt-2 text-sm" style={{ color: 'var(--fs-text-muted)' }}>
           Search · Action · Workflow
         </p>
