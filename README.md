@@ -1,7 +1,7 @@
-<h1 align="center">Tambo Browser — Search Engine</h1>
+<h1 align="center">Tambo Browser — Search Engine (Tambo Enhanced Perplexity)</h1>
 
 <p align="center">
-  <strong>Tambo Browser — Search Engine : Generative, Interactive UI with Fully Managed Workflows Using everysingle Tambo Components and Features</strong>
+  <strong>Tambo Browser — Search Engine: A Tambo AI Enhanced Perplexity with Generative, Interactive UI and Fully Managed Workflows</strong>
 </p>
 
 <p align="center">
@@ -26,28 +26,28 @@
 
 ## 🎯 The Problem
 
-Every AI chat tool today has the same limitation: **the output is always text.**
+Every AI search and chat tool today — including Perplexity and ChatGPT — has the same core limitation: **the output is always text.**
 
-Ask ChatGPT to "compare React vs Vue on GitHub" and you get a wall of markdown. Ask it to "show my schedule" and you get a bullet list. Ask it to "research JavaScript frameworks" and you get... paragraphs.
+Ask “Compare React vs Vue on GitHub” and you get a markdown table. Ask “show my schedule” and you get a bullet list. Ask for in-depth analysis and you get… long paragraphs with citations.
 
-**Text is not how humans process information.** We need charts, cards, maps, timelines, grids — real UI.
+**Text is not how humans best consume information.** We need charts, cards, maps, timelines, interactive grids — real, dynamic UI.
 
 ## 💡 The Solution
 
-**Tambo Browser** is a Fully AI enhance Web Browser + Search Engine that uses [Tambo AI's](https://tambo.co) generative UI framework to render **real, interactive components directly in the chat stream.**
+**Tambo Browser** is a fully AI-enhanced search engine and conversational browser that uses [Tambo AI's](https://tambo.co) generative UI framework to render **real, interactive components directly in the chat stream**.
 
-When you ask "Compare React vs Vue vs Svelte on GitHub," you don't get text — you get a **live bar chart** that auto-fetches GitHub API data and renders stars, forks, and watchers side-by-side.
+When you ask "Compare React vs Vue vs Svelte on GitHub," you don’t get text — you get a **live bar chart** that auto-fetches GitHub API data and displays stars, forks, and watchers side-by-side.
 
-When you say "Bookmark these results to my Learning Resources collection," the AI calls a tool, writes to your database, and then renders your **actual Collections component** inline showing the saved items with clickable links.
+When you say "Bookmark these results to my Learning Resources collection," the AI calls a tool, saves to your database, and instantly renders your **actual Collections component** inline with clickable links.
 
-This is not a chatbot with a search bar. This is a **research operating system** where the AI orchestrates 10 workspace views, 7 AI tools, 13 generative components, and a multi-step workflow engine — all unified into a single conversational interface.
+This is not just another AI search engine. This is a **Tambo-enhanced Perplexity-style experience** where the AI goes beyond text answers and generates living, interactive UI — orchestrating workspace views, AI tools, generative components, and multi-step workflows — all within a single, seamless conversational interface.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
 │   You:  "Compare React vs Vue vs Svelte on GitHub"             │
 │                                                                 │
-│   AI:   I'll pull live GitHub metrics and chart them for you.  │
+│   AI:   Pulling live GitHub metrics and charting them.         │
 │                                                                 │
 │         ┌─────────────────────────────────────────────┐        │
 │         │  📊 GitHub Repository Comparison             │        │
@@ -61,7 +61,7 @@ This is not a chatbot with a search bar. This is a **research operating system**
 │         │  🟢 react 228k  🟢 vue 48k  🟢 svelte 82k │        │
 │         └─────────────────────────────────────────────┘        │
 │                                                                 │
-│   You:  "Now bookmark these results and schedule a review"     │
+│   You:  "Bookmark these and schedule a review"                 │
 │                                                                 │
 │   AI:   ✅ Saved to "Framework Research" collection.           │
 │         ✅ Scheduled review for tomorrow 2:00 PM.              │
@@ -89,7 +89,7 @@ This is not a chatbot with a search bar. This is a **research operating system**
 
 ### 10 Workspace Views
 
-Tambo Browser organizes research into specialized workspace views, each with its own purpose. The AI understands which view you're on and adapts its behavior accordingly.
+Tambo Browser organizes searches and follow-up tasks into specialized workspace views. The AI knows which view you’re on and adapts accordingly.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -97,7 +97,7 @@ Tambo Browser organizes research into specialized workspace views, each with its
 │                             │                                │
 │  ▸ CORE                    │    Active view renders here    │
 │    🔍 Search               │    with animated transitions   │
-│    ⚡ Workflows             │                                │
+│    ⚡ Deep Workflows        │                                │
 │    📝 Reports              │    Each view has:              │
 │                             │    • Dedicated component       │
 │  ▸ VISUALIZE               │    • Floating chat (⌘J)       │
@@ -114,18 +114,18 @@ Tambo Browser organizes research into specialized workspace views, each with its
 └──────────────────────────────────────────────────────────────┘
 ```
 
-| View            | Purpose                           | Component                       | Key Capability                                |
-| --------------- | --------------------------------- | ------------------------------- | --------------------------------------------- |
-| **Search**      | Multi-source research             | `MessageThreadFull`             | Google, GitHub, and Pexels search in one chat |
-| **Workflows**   | Automated research pipelines      | `WorkflowLibrary`               | 5 templates, live progress, auto-reports      |
-| **Reports**     | AI-generated research documents   | `ReportsList` → `DynamicReport` | Tables, charts, sections, key findings        |
-| **Analytics**   | Data visualization dashboard      | `AnalyticsGraph`                | 4 analysis modes with live API data           |
-| **Map**         | Location-based research           | `LocationMap`                   | Leaflet maps with OpenStreetMap Nominatim     |
-| **Canvas**      | Spatial multi-component workspace | `CanvasSpace` (Tambo)           | Components stack spatially side-by-side       |
-| **Collections** | Organized bookmarks               | `Collections`                   | Typed items (articles, repos, images, pins)   |
-| **Calendar**    | Research scheduling               | `Calendar`                      | Events with linked search results             |
-| **Notes**       | Research annotations              | `Notes`                         | Source tracking, collection linking           |
-| **Studio**      | AI image editing                  | `ImageStudio`                   | Variations, edits, masonry gallery            |
+| View               | Purpose                           | Component                       | Key Capability                                |
+| ------------------ | --------------------------------- | ------------------------------- | --------------------------------------------- |
+| **Search**         | Multi-source search               | `MessageThreadFull`             | Google, GitHub, and Pexels search in one chat |
+| **Deep Workflows** | Automated multi-step queries      | `WorkflowLibrary`               | 5 templates, live progress, auto-reports      |
+| **Reports**        | AI-generated answer documents     | `ReportsList` → `DynamicReport` | Tables, charts, sections, key findings        |
+| **Analytics**      | Data visualization dashboard      | `AnalyticsGraph`                | 4 analysis modes with live API data           |
+| **Map**            | Location-based queries            | `LocationMap`                   | Leaflet maps with OpenStreetMap Nominatim     |
+| **Canvas**         | Spatial multi-component workspace | `CanvasSpace` (Tambo)           | Components stack spatially side-by-side       |
+| **Collections**    | Organized bookmarks               | `Collections`                   | Typed items (articles, repos, images, pins)   |
+| **Calendar**       | Task scheduling                   | `Calendar`                      | Events with linked search results             |
+| **Notes**          | Query annotations                 | `Notes`                         | Source tracking, collection linking           |
+| **Studio**         | AI image editing                  | `ImageStudio`                   | Variations, edits, masonry gallery            |
 
 ---
 
